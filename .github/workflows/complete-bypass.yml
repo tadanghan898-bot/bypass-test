@@ -1,0 +1,80 @@
+name: Complete Bypass - ALL Services
+on: [workflow_dispatch]
+
+jobs:
+  region-test-us:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Full API Test - US West
+        run: |
+          echo "=== US WEST REGION (ubuntu-latest) ==="
+          echo ""
+          echo "--- CSM FAMILY ---"
+          for url in https://csm.ai https://api.csm.ai https://cdn.csm.ai https://studio.csm.ai https://app.csm.ai; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 $url 2>/dev/null || echo "FAIL")
+            echo "$url: $code"
+          done
+          echo ""
+          echo "--- MESHY AI ---"
+          for url in https://api.meshy.ai https://api.meshy.ai/v1 https://api.meshy.ai/v1/models https://api.meshy.ai/v1/tasks https://www.meshy.ai/api; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 $url 2>/dev/null || echo "FAIL")
+            echo "$url: $code"
+          done
+          echo ""
+          echo "--- POLYCAM ---"
+          for url in https://api.poly.cam https://poly.cam/api https://api.polycam3d.com https://www.polycam3d.com/api; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 $url 2>/dev/null || echo "FAIL")
+            echo "$url: $code"
+          done
+          echo ""
+          echo "--- STABILITY AI ---"
+          for url in https://api.stability.ai https://api.stability.ai/v1 https://api.stability.ai/v1/engines https://api.stability.ai/v1/account; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 $url 2>/dev/null || echo "FAIL")
+            echo "$url: $code"
+          done
+          echo ""
+          echo "--- CSM via IPv6 / alternate ---"
+          curl -s -o /dev/null -w "csm via IPv6: %{http_code}\n" --max-time 5 -6 https://csm.ai 2>/dev/null || echo "IPv6: N/A"
+          echo ""
+          echo "--- ALL HEADERS of api.meshy.ai ---"
+          curl -sI --max-time 5 https://api.meshy.ai/ 2>/dev/null | head -20
+          echo ""
+          echo "--- LUMA HEADERS ---"
+          curl -sI --max-time 5 https://api.lumalabs.ai/ 2>/dev/null | head -20
+          echo ""
+          echo "--- TRIPO HEADERS ---"
+          curl -sI --max-time 5 https://api.tripo3d.ai/ 2>/dev/null | head -20
+          echo ""
+          echo "--- MESHY POST TEST ---"
+          curl -s -X POST -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/v1/models \
+            -H "Content-Type: application/json" \
+            -d '{}' 2>/dev/null || echo "FAIL"
+          echo ""
+          echo "--- POLYCAM HEADERS ---"
+          curl -sI --max-time 5 https://api.poly.cam/ 2>/dev/null | head -10 || echo "polycam: DNS/conn fail"
+
+  region-test-win:
+    runs-on: windows-latest
+    steps:
+      - name: Full API Test - Windows Runner
+        run: |
+          echo "=== WINDOWS LATEST REGION ==="
+          Write-Host "Testing blocked services from Windows runner..."
+          Write-Host ""
+          Write-Host "CSM AI:"
+          try { Invoke-WebRequest -Uri "https://csm.ai" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
+          Write-Host ""
+          Write-Host "Meshy AI:"
+          try { Invoke-WebRequest -Uri "https://api.meshy.ai" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
+          Write-Host ""
+          Write-Host "Polycam:"
+          try { Invoke-WebRequest -Uri "https://api.poly.cam" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
+          Write-Host ""
+          Write-Host "Stability AI:"
+          try { Invoke-WebRequest -Uri "https://api.stability.ai" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
+          Write-Host ""
+          Write-Host "Tripo3D:"
+          try { Invoke-WebRequest -Uri "https://api.tripo3d.ai" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
+          Write-Host ""
+          Write-Host "Luma Labs:"
+          try { Invoke-WebRequest -Uri "https://api.lumalabs.ai" -TimeoutSec 5 -UseBasicParsing } catch { Write-Host "FAIL: $($_.Exception.Message)" }
