@@ -1,0 +1,75 @@
+name: Connectivity Test - ALL Cloud Services
+on:
+  workflow_dispatch:
+
+jobs:
+  test-direct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test ALL Services Connectivity
+        run: |
+          echo "========================================"
+          echo "CONNECTIVITY TEST - ALL CLOUD SERVICES"
+          echo "========================================"
+
+          echo ""
+          echo "=== 3D MODEL APIs ==="
+          echo "Meshy AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.meshy.ai/openapi/v1/balance -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Tripo3D: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.tripo3d.ai/ 2>/dev/null || echo FAIL)"
+          echo "Luma Labs: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.lumalabs.ai/ 2>/dev/null || echo FAIL)"
+          echo "Stability AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.stability.ai/ 2>/dev/null || echo FAIL)"
+          echo "Replicate: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.replicate.com/ 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== IMAGE GENERATION APIs ==="
+          echo "Leonardo AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.leonardo.ai/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Recraft: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.recraft.ai/v3/images/generation -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Ideogram: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.ideogram.ai/v1/User -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Flux/BFL: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.bfl.ai/v1/flux-schnell/generation -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== VIDEO GENERATION APIs ==="
+          echo "Runway ML: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.runwayml.com/v1/me -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Pika Labs: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.pika.art/v1/channels -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== LLM APIs ==="
+          echo "OpenAI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.openai.com/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Anthropic: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.anthropic.com/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Groq: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.groq.com/openai/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "DeepSeek: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.deepseek.com/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Mistral: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.mistral.ai/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Together AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.together.xyz/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Fireworks AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.fireworks.ai/inference/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Perplexity: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.perplexity.ai/chat/completions -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Cohere: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.cohere.com/v1/models -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== TTS APIs ==="
+          echo "ElevenLabs: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.elevenlabs.io/v1/user/subscription -H 'xi-api-key: test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== STT APIs ==="
+          echo "Deepgram: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.deepgram.com/v2/projects -H 'Authorization: Token test' 2>/dev/null || echo FAIL)"
+          echo "AssemblyAI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.assemblyai.com/v2/transcript -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== EMBEDDING APIs ==="
+          echo "Jina AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.jina.ai/v1/embeddings -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+          echo "Voyage AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.voyageai.com/v1/embeddings -H 'Authorization: Bearer test' 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== BLOCKED SERVICES (should fail) ==="
+          echo "CSM-AI: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://csm.ai/ 2>/dev/null || echo FAIL/DNS)"
+          echo "Polycam: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://api.poly.cam/ 2>/dev/null || echo FAIL)"
+          echo "Kiri Art: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://kiri.art/ 2>/dev/null || echo FAIL/DNS)"
+          echo "Plask: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://plask.ai/ 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "=== HUGGINGFACE (Direct) ==="
+          echo "HuggingFace: $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://huggingface.co/ 2>/dev/null || echo FAIL)"
+
+          echo ""
+          echo "========================================"
+          echo "TEST COMPLETE"
+          echo "========================================"
