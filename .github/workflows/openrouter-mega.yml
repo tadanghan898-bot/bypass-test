@@ -1,0 +1,172 @@
+name: ULTIMATE BYPASS - OpenRouter Proxy
+on:
+  workflow_dispatch:
+
+jobs:
+  openrouter-master:
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenRouter - Claude via OpenRouter
+        run: |
+          echo '=== OPENROUTER PROXY - ALL MODELS ==='
+          echo ''
+
+          echo '--- Claude via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "anthropic/claude-3-5-haiku-20241022",
+              "messages": [{"role": "user", "content": "Say exactly: CLAUDE_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > claude_result.json
+
+          echo ''
+          echo '--- GPT-4o Mini via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "openai/gpt-4o-mini",
+              "messages": [{"role": "user", "content": "Say exactly: GPT_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > gpt_result.json
+
+          echo ''
+          echo '--- Gemini via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "google/gemini-2.0-flash-exp",
+              "messages": [{"role": "user", "content": "Say exactly: GEMINI_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > gemini_result.json
+
+          echo ''
+          echo '--- Llama via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "meta-llama/llama-3.2-3b-instruct",
+              "messages": [{"role": "user", "content": "Say exactly: LLAMA_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > llama_result.json
+
+          echo ''
+          echo '--- Mistral via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "mistralai/mistral-7b-instruct",
+              "messages": [{"role": "user", "content": "Say exactly: MISTRAL_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > mistral_result.json
+
+          echo ''
+          echo '--- Qwen via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "qwen/qwen-2.5-7b-instruct",
+              "messages": [{"role": "user", "content": "Say exactly: QWEN_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > qwen_result.json
+
+          echo ''
+          echo '--- DeepSeek via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "deepseek/deepseek-chat-v3-0324",
+              "messages": [{"role": "user", "content": "Say exactly: DEEPSEEK_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > deepseek_result.json
+
+          echo ''
+          echo '--- Claude Opus 4.6 via OpenRouter ---'
+          RESP=$(curl -s -X POST \
+            "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "anthropic/claude-opus-4.6-fast",
+              "messages": [{"role": "user", "content": "Say exactly: OPUS_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 60 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$RESP" > opus_result.json
+
+          echo ''
+          echo '=== ULTIMATE BYPASS COMPLETE ==='
+
+      - name: Upload All Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: openrouter-results
+          path: |
+            claude_result.json
+            gpt_result.json
+            gemini_result.json
+            llama_result.json
+            mistral_result.json
+            qwen_result.json
+            deepseek_result.json
+            opus_result.json
