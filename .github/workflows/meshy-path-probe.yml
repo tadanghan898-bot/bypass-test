@@ -1,0 +1,63 @@
+name: Meshy Path Probe
+on: [workflow_dispatch]
+
+jobs:
+  meshy-all-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meshy AI - Find correct path
+        run: |
+          echo "=== MESHY AI - ALL PATHS ==="
+          echo ""
+          echo "Headers:"
+          curl -sI --max-time 5 https://api.meshy.ai/ 2>/dev/null
+          echo ""
+          echo "Trying GET /:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/ 2>/dev/null
+          echo ""
+          echo "Trying POST / (no auth):"
+          curl -s -X POST -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/ -H "Content-Type: application/json" -d '{}' 2>/dev/null
+          echo ""
+          echo "Trying POST /v1/models:"
+          curl -s -X POST -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/v1/models -H "Content-Type: application/json" -d '{"model":"meshmadern-v1","image_url":"https://example.com/test.jpg"}' 2>/dev/null
+          echo ""
+          echo "Trying POST /v1/image-to-3d:"
+          curl -s -X POST -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/v1/image-to-3d -H "Content-Type: application/json" -d '{"image_url":"https://example.com/test.jpg"}' 2>/dev/null
+          echo ""
+          echo "Trying POST /v1/text-to-image-to-3d:"
+          curl -s -X POST -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/v1/text-to-image-to-3d -H "Content-Type: application/json" -d '{"prompt":"a cat"}' 2>/dev/null
+          echo ""
+          echo "Trying GET /v1/account:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/v1/account 2>/dev/null
+          echo ""
+          echo "Trying GET /api/v1/authorizations:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/api/v1/authorizations 2>/dev/null
+          echo ""
+          echo "Trying GET /docs:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/docs 2>/dev/null
+          echo ""
+          echo "Trying GET /openapi:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/openapi 2>/dev/null
+          echo ""
+          echo "Trying GET /swagger:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.meshy.ai/swagger 2>/dev/null
+          echo ""
+          echo "=== STABILITY AI FULL PROBE ==="
+          echo "Base:"
+          curl -sI --max-time 5 https://api.stability.ai/ 2>/dev/null
+          echo ""
+          echo "v1/engines:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.stability.ai/v1/engines 2>/dev/null
+          echo ""
+          echo "v1/account/keys:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.stability.ai/v1/account/keys 2>/dev/null
+          echo ""
+          echo "v1/organization/keys:"
+          curl -s -w "\nHTTP: %{http_code}" --max-time 10 https://api.stability.ai/v1/organization/keys 2>/dev/null
+          echo ""
+          echo "=== SEARCH FOR 3D APIs ==="
+          echo "Replicate search 3D:"
+          curl -s "https://api.replicate.com/v1/models?q=image-to-3d&visibility=public&limit=5" --max-time 15 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'  {r[\"id\"]}') for r in d.get('results',[])]" 2>/dev/null || echo "Parse failed"
+          echo ""
+          echo "Replicate search mesh:"
+          curl -s "https://api.replicate.com/v1/models?q=mesh&visibility=public&limit=5" --max-time 15 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'  {r[\"id\"]}') for r in d.get('results',[])]" 2>/dev/null || echo "Parse failed"
