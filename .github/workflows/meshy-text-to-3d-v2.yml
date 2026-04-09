@@ -1,0 +1,22 @@
+name: Meshy Text-to-3D v2
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Text prompt
+        required: true
+        default: 'a red sports car'
+      model:
+        description: Model
+        required: false
+        default: meshmadern-v1
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Text to 3D
+        run: |
+          echo 'Submitting text-to-3d task...'
+          RESPONSE=$(curl -s -X POST             "https://api.meshy.ai/openapi/v2/text-to-3d"             -H "Authorization: Bearer ${{ secrets.MESHY_API_KEY }}"             -H "Content-Type: application/json"             -H "X-Api-Version: v2026.04.03.post7"             -d '{"prompt":"${{ github.event.inputs.prompt }}","model":"${{ github.event.inputs.model }}"}'             -w "
+%{http_code}"             --max-time 30)
+          echo "$RESPONSE"
