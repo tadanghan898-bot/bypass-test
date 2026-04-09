@@ -1,0 +1,135 @@
+name: Stability AI - ALL Endpoints (Image + 3D + Video)
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: 'Endpoint: text_to_image, image_to_image, image_to_3d, text_to_video'
+        required: true
+        default: 'text_to_image'
+      prompt:
+        description: 'Text prompt'
+        required: false
+      image_url:
+        description: 'Image URL (for image_to_image)'
+        required: false
+      model:
+        description: 'Model name'
+        required: false
+        default: 'stable-diffusion-xl-1024-v1-0'
+      aspect_ratio:
+        description: 'Aspect ratio: 16:9, 1:1, 9:16'
+        required: false
+        default: '16:9'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Text to Image
+        if: github.event.inputs.endpoint == 'text_to_image'
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          HEIGHT=1024
+          WIDTH=1024
+          if [ "${{ github.event.inputs.aspect_ratio }}" = "16:9" ]; then WIDTH=1024; HEIGHT=576; fi
+          if [ "${{ github.event.inputs.aspect_ratio }}" = "9:16" ]; then WIDTH=576; HEIGHT=1024; fi
+          echo "Generating image ${WIDTH}x${HEIGHT}..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.stability.ai/v1/generation/${{ github.event.inputs.model || 'stable-diffusion-xl-1024-v1-0' }}/text-to-image" \
+            -H "Authorization: ${STABILITY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text_prompts\": [{\"text\": \"${{ github.event.inputs.prompt }}\"}],
+              \"cfg_scale\": 7,
+              \"height\": ${HEIGHT},
+              \"width\": ${WIDTH},
+              \"samples\": 1,
+              \"steps\": 30
+            }" \
+            -w "\n%{http_code}" --max-time 120)
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+          # Extract and download images
+          echo "$BODY" | python3 -c "
+import sys,json,base64,os
+try:
+  d=json.load(sys.stdin)
+  artifacts=d.get('artifacts',[])
+  for i,a in enumerate(artifacts):
+    if 'base64' in a:
+      data=base64.b64decode(a['base64'])
+      with open(f'image_{i}.png','wb') as f:
+        f.write(data)
+      print(f'Saved: image_{i}.png')
+except Exception as e:
+  print(f'Parse error: {e}')
+  print(d)
+" 2>&1 || echo "Parse failed"
+
+      - name: Image to Image
+        if: github.event.inputs.endpoint == 'image_to_image'
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          echo "Image to image generation..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.stability.ai/v1/generation/${{ github.event.inputs.model || 'stable-diffusion-xl-1024-v1-0' }}/image-to-image" \
+            -H "Authorization: ${STABILITY_API_KEY}" \
+            -H "Content-Type: multipart/form-data" \
+            --form init_image="@<(curl -sL '${{ github.event.inputs.image_url }}')" \
+            --form "text_prompts=[{\"text\":\"${{ github.event.inputs.prompt }}\"}]" \
+            --form "image_strength=0.35" \
+            -w "\n%{http_code}" --max-time 120)
+          echo "$RESPONSE" > response.json
+
+      - name: Image to 3D
+        if: github.event.inputs.endpoint == 'image_to_3d'
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          echo "Image to 3D generation..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.stability.ai/v1/generation/stable-3d/grounding" \
+            -H "Authorization: ${STABILITY_API_KEY}" \
+            -H "Content-Type: multipart/form-data" \
+            --form "image=@<(curl -sL '${{ github.event.inputs.image_url }}')" \
+            --form "model=stable-3d" \
+            -w "\n%{http_code}" --max-time 180)
+          echo "$RESPONSE" > response.json
+
+      - name: Text to Video
+        if: github.event.inputs.endpoint == 'text_to_video'
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          echo "Text to video generation..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.stability.ai/v1/generation/stable-video-1-0/text-to-video" \
+            -H "Authorization: ${STABILITY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text_prompts\": [{\"text\": \"${{ github.event.inputs.prompt }}\"}],
+              \"motion_bucket_id\": 127
+            }" \
+            -w "\n%{http_code}" --max-time 180)
+          echo "$RESPONSE" > response.json
+
+      - name: Check Balance
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          echo "Checking Stability AI balance..."
+          curl -s "https://api.stability.ai/v1/user/balance" \
+            -H "Authorization: ${STABILITY_API_KEY}"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stability-result-${{ github.run_id }}
+          path: |
+            response.json
+            image_*.png
+          retention-days: 7
