@@ -1,0 +1,116 @@
+name: OpenAI Direct + HF Scan
+on:
+  workflow_dispatch:
+
+jobs:
+  openai-direct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenAI Direct Test
+        run: |
+          echo '=== OPENAI DIRECT TEST ==='
+          echo 'Key starts with: ${{ secrets.OPENAI_API_KEY }}'
+          RESP=$(curl -s -X POST \
+            "https://api.openai.com/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "gpt-4o-mini",
+              "messages": [{"role": "user", "content": "Say exactly: OPENAI_WORKS"}],
+              "max_tokens": 20
+            }' \
+            --max-time 30 -w "\n%{http_code}")
+          HTTP=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+
+  hf-search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HuggingFace Top Models
+        run: |
+          echo '=== HUGGINGFACE TOP MODELS ==='
+
+          echo ''
+          echo '--- Top Image-to-3D ---'
+          curl -s "https://huggingface.co/api/models?search=image+to+3d&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+models=json.load(sys.stdin)
+for m in models:
+    print(f'{m[\"id\"]} | {m.get(\"downloads\",0)} downloads')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- Top 3D Generation ---'
+          curl -s "https://huggingface.co/api/models?search=3d+generation&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+models=json.load(sys.stdin)
+for m in models:
+    print(f'{m[\"id\"]} | {m.get(\"downloads\",0)} downloads')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- Top Video Gen ---'
+          curl -s "https://huggingface.co/api/models?search=video+generation&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+models=json.load(sys.stdin)
+for m in models:
+    print(f'{m[\"id\"]} | {m.get(\"downloads\",0)} downloads')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- Top Text-to-Image ---'
+          curl -s "https://huggingface.co/api/models?search=stable+diffusion&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+models=json.load(sys.stdin)
+for m in models:
+    print(f'{m[\"id\"]} | {m.get(\"downloads\",0)} downloads')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- Top LLMs ---'
+          curl -s "https://huggingface.co/api/models?search=llama&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+models=json.load(sys.stdin)
+for m in models:
+    print(f'{m[\"id\"]} | {m.get(\"downloads\",0)} downloads')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- Top Spaces (3D) ---'
+          curl -s "https://huggingface.co/api/spaces?search=3d&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+spaces=json.load(sys.stdin)
+for s in spaces:
+    print(f'{s[\"id\"]} | {s.get(\"likes\",0)} likes')
+" 2>/dev/null || echo "FAIL"
+
+  test-openrouter-free:
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenRouter Free Tier
+        run: |
+          echo '=== OPENROUTER FREE TIER TEST ==='
+
+          echo ''
+          echo '--- OpenRouter Status ---'
+          curl -s "https://openrouter.ai/api/v1/models" 2>/dev/null | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+models=data.get('data',[])[:15]
+for m in models:
+    print(f'{m[\"id\"]} | free={m.get(\"pricing\",{}).get(\"prompt\",\"?\")}')
+" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '--- OpenRouter Free Models List ---'
+          curl -s "https://openrouter.ai/api/v1/models" 2>/dev/null | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+for m in data.get('data',[]):
+    p=m.get('pricing',{})
+    prompt=p.get('prompt','0')
+    if float(prompt or 0) == 0:
+        print(f'FREE: {m[\"id\"]}')
+" 2>/dev/null | head -30 || echo "FAIL"
