@@ -1,0 +1,96 @@
+name: Meshy OpenAPI Confirmed Endpoints
+on: [workflow_dispatch]
+
+jobs:
+  meshy-all-openapi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: MESHY AI - ALL CONFIRMED ENDPOINTS
+        run: |
+          echo "=========================================="
+          echo "MESHY AI - CONFIRMED ENDPOINTS"
+          echo "X-Api-Version: v2026.04.03.post7"
+          echo "=========================================="
+          echo "=== CONFIRMED V1 ENDPOINTS (401 = EXISTS) ==="
+          for path in "/openapi/v1/image-to-3d" "/openapi/v1/text-to-3d" "/openapi/v1/remesh" "/openapi/v1/rigging" "/openapi/v1/retexture" "/openapi/v1/text-to-image" "/openapi/v1/image-to-image" "/openapi/v1/balance"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            msg=$(echo "$code" | head -1)
+            echo "GET ${path}: $http -> $msg"
+          done
+          echo "=== CONFIRMED V2 ENDPOINTS ==="
+          for path in "/openapi/v2/text-to-3d" "/openapi/v2/image-to-3d" "/openapi/v2/remesh" "/openapi/v2/rigging" "/openapi/v2/retexture"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            echo "GET ${path}: $http"
+          done
+          echo "=== DISCOVER MORE V1 ENDPOINTS ==="
+          for path in "/openapi/v1/tasks" "/openapi/v1/jobs" "/openapi/v1/generations" "/openapi/v1/models" "/openapi/v1/files" "/openapi/v1/uploads" "/openapi/v1/exports" "/openapi/v1/presets" "/openapi/v1/templates" "/openapi/v1/webhooks" "/openapi/v1/keys" "/openapi/v1/account" "/openapi/v1/user" "/openapi/v1/profile" "/openapi/v1/billing" "/openapi/v1/subscription" "/openapi/v1/pricing" "/openapi/v1/limits" "/openapi/v1/credits" "/openapi/v1/quota" "/openapi/v1/rate-limits" "/openapi/v1/usage" "/openapi/v1/stats" "/openapi/v1/analytics" "/openapi/v1/queue" "/openapi/v1/health" "/openapi/v1/ping" "/openapi/v1/status" "/openapi/v1/version"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "GET ${path}: $http"; fi
+          done
+          echo "=== DISCOVER MORE V2 ENDPOINTS ==="
+          for path in "/openapi/v2/tasks" "/openapi/v2/jobs" "/openapi/v2/generations" "/openapi/v2/models" "/openapi/v2/files" "/openapi/v2/uploads" "/openapi/v2/exports" "/openapi/v2/presets" "/openapi/v2/account" "/openapi/v2/user" "/openapi/v2/billing" "/openapi/v2/balance" "/openapi/v2/credits" "/openapi/v2/limits" "/openapi/v2/usage" "/openapi/v2/health" "/openapi/v2/ping" "/openapi/v2/status"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "GET ${path}: $http"; fi
+          done
+          echo "=== DISCOVER V3 ENDPOINTS ==="
+          for path in "/openapi/v3/text-to-3d" "/openapi/v3/image-to-3d" "/openapi/v3/remesh" "/openapi/v3/rigging" "/openapi/v3/retexture" "/openapi/v3/tasks" "/openapi/v3/balance" "/openapi/v3/account"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "GET ${path}: $http"; fi
+          done
+          echo "=== DISCOVER PRINT ENDPOINTS ==="
+          for path in "/openapi/v1/print/multi-color" "/openapi/v1/print/single-color" "/openapi/v1/print/color" "/openapi/v1/print"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "GET ${path}: $http"; fi
+          done
+          echo "=== POST REQUESTS (401 = valid endpoint) ==="
+          for path in "/openapi/v1/image-to-3d" "/openapi/v1/text-to-3d" "/openapi/v1/remesh" "/openapi/v1/rigging" "/openapi/v1/retexture" "/openapi/v1/text-to-image" "/openapi/v1/image-to-image" "/openapi/v1/print/multi-color" "/openapi/v2/text-to-3d" "/openapi/v2/image-to-3d"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 -X POST "https://api.meshy.ai${path}" -H "Content-Type: application/json" -d '{"image_url":"https://example.com/test.jpg"}' 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            msg=$(echo "$code" | head -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "POST ${path}: $http -> $msg"; fi
+          done
+          echo "=== OPENAPI SCHEMA DISCOVERY ==="
+          for path in "/openapi/v1/openapi.json" "/openapi/v2/openapi.json" "/openapi/v1/schema.json" "/openapi/v2/schema.json" "/openapi/spec.json" "/openapi/spec.yaml" "/openapi/v1/spec" "/openapi/v2/spec"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            if [ "$http" = "200" ]; then
+              echo "GET ${path}: $http - FOUND!"
+              curl -s --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null | head -30
+            fi
+          done
+          echo "=== AI MODELS DISCOVERY ==="
+          for model in "meshmadern-v1" "meshmadern" "meshrefine-v1" "meshrefine" "meshfast-v1" "meshfast" "nano-banana" "meshadge" "meshadge-v1" "meshadge-v2" "meshpro" "meshpro-v1" "meshhd" "mesh4k" "meshstandard" "meshturbo" "meshupload" "meshbase" "meshhq"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/openapi/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"model\":\"${model}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            msg=$(echo "$code" | head -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "POST image-to-3d model=${model}: $http -> $msg"; fi
+          done
+          echo "=== FORMAT OPTIONS ==="
+          for fmt in "glb" "gltf" "obj" "fbx" "usdz" "ply" "stl" "3ds" "dae" "3mf"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/openapi/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"format\":\"${fmt}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            msg=$(echo "$code" | head -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "POST image-to-3d format=${fmt}: $http -> $msg"; fi
+          done
+          echo "=== QUALITY OPTIONS ==="
+          for quality in "preview" "standard" "high" "ultra" "4k" "2k" "hd" "fhd" "fast" "balanced"; do
+            code=$(curl -s -w "\n%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/openapi/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"quality\":\"${quality}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null)
+            http=$(echo "$code" | tail -1)
+            msg=$(echo "$code" | head -1)
+            if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "POST image-to-3d quality=${quality}: $http -> $msg"; fi
+          done
+          echo "=== TASK ID PATTERNS ==="
+          for tid in "018a210d-8ba4-705c-b111-1f1776f7f578" "018a210d-8ba4-705c-b111-1f1776f7f579" "a43b5c6d-7e8f-901a-234b-567c890d1e2f"; do
+            for path in "/openapi/v1/image-to-3d/${tid}" "/openapi/v1/text-to-3d/${tid}" "/openapi/v1/remesh/${tid}" "/openapi/v1/rigging/${tid}" "/openapi/v1/retexture/${tid}" "/openapi/v1/text-to-image/${tid}" "/openapi/v1/image-to-image/${tid}" "/openapi/v1/print/multi-color/${tid}"; do
+              code=$(curl -s -w "\n%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null)
+              http=$(echo "$code" | tail -1)
+              if [ "$http" != "000" ] && [ "$http" != "FAIL" ]; then echo "GET ${path}: $http"; fi
+            done
+          done
