@@ -1,0 +1,126 @@
+name: Video Generation - ALL Providers
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider: runway, pika, luma, stability'
+        required: true
+        default: 'runway'
+      prompt:
+        description: 'Text prompt for video'
+        required: false
+      image_url:
+        description: 'Image URL (for image-to-video)'
+        required: false
+      model:
+        description: 'Model name'
+        required: false
+        default: ''
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Runway ML
+        if: github.event.inputs.provider == 'runway'
+        env:
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
+        run: |
+          echo "Generating video via Runway ML..."
+          if [ -n "${{ github.event.inputs.image_url }}" ]; then
+            echo "Mode: image-to-video"
+            RESPONSE=$(curl -s -X POST \
+              "https://api.runwayml.com/v1/image_to_video" \
+              -H "Authorization: Bearer ${RUNWAY_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"image_url\":\"${{ github.event.inputs.image_url }}\"}" \
+              -w "\n%{http_code}" --max-time 180)
+          else
+            echo "Mode: text-to-video"
+            RESPONSE=$(curl -s -X POST \
+              "https://api.runwayml.com/v1/text_to_video" \
+              -H "Authorization: Bearer ${RUNWAY_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"prompt\":\"${{ github.event.inputs.prompt }}\"}" \
+              -w "\n%{http_code}" --max-time 180)
+          fi
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+
+      - name: Pika Labs
+        if: github.event.inputs.provider == 'pika'
+        env:
+          PIKA_API_KEY: ${{ secrets.PIKA_API_KEY }}
+        run: |
+          echo "Generating video via Pika Labs..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.pika.art/v1/channels/${{ secrets.PIKA_CHANNEL_ID || 'default' }}/videos/generate" \
+            -H "Authorization: Bearer ${PIKA_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"prompt\":\"${{ github.event.inputs.prompt }}\"}" \
+            -w "\n%{http_code}" --max-time 180)
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+
+      - name: Luma Dream Machine
+        if: github.event.inputs.provider == 'luma'
+        env:
+          LUMA_API_KEY: ${{ secrets.LUMA_API_KEY }}
+        run: |
+          echo "Generating video via Luma Dream Machine..."
+          if [ -n "${{ github.event.inputs.image_url }}" ]; then
+            RESPONSE=$(curl -s -X POST \
+              "https://api.lumalabs.ai/v1/generate/image-to-video" \
+              -H "Authorization: Bearer ${LUMA_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"image_url\":\"${{ github.event.inputs.image_url }}\"}" \
+              -w "\n%{http_code}" --max-time 180)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.lumalabs.ai/v1/generate/video-from-text" \
+              -H "Authorization: Bearer ${LUMA_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"prompt\":\"${{ github.event.inputs.prompt }}\"}" \
+              -w "\n%{http_code}" --max-time 180)
+          fi
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+
+      - name: Stable Video Diffusion
+        if: github.event.inputs.provider == 'stability'
+        env:
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+        run: |
+          echo "Generating video via Stable Video Diffusion..."
+          if [ -n "${{ github.event.inputs.image_url }}" ]; then
+            RESPONSE=$(curl -s -X POST \
+              "https://api.stability.ai/v1/generation/stable-video-1-0/image-to-video" \
+              -H "Authorization: ${STABILITY_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"image_url\":\"${{ github.event.inputs.image_url }}\",\"motion_bucket_id\":127}" \
+              -w "\n%{http_code}" --max-time 180)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.stability.ai/v1/generation/stable-video-1-0/text-to-video" \
+              -H "Authorization: ${STABILITY_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"text_prompts\":[{\"text\":\"${{ github.event.inputs.prompt }}\"}],\"motion_bucket_id\":127}" \
+              -w "\n%{http_code}" --max-time 180)
+          fi
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-result-${{ github.run_id }}
+          path: response.json
+          retention-days: 7
