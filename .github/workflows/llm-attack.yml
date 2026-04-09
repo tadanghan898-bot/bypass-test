@@ -1,0 +1,58 @@
+name: LLM API Attack - Anthropic/Cohere
+on:
+  workflow_dispatch:
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: LLM Attack
+        run: |
+          echo '=== ANTHROPIC API TEST ==='
+          for url in \
+            "https://api.anthropic.com/v1/messages" \
+            "https://api.anthropic.com/v1/models" \
+            "https://api.anthropic.com/v1/complete"; do
+            echo "POST $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 -X POST \
+              "$url" -H "x-api-key: test" -H "Content-Type: application/json" \
+              -H "anthropic-version: 2023-06-01" \
+              -d '{"model":"claude-3-5-sonnet-20241022","messages":[{"role":"user","content":"hi"}],"max_tokens":10}' 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== COHERE API TEST ==='
+          for url in \
+            "https://api.cohere.ai/v1/chat" \
+            "https://api.cohere.ai/v1/embed" \
+            "https://api.cohere.ai/v1/generate" \
+            "https://api.cohere.ai/v1/classify"; do
+            echo "POST $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 -X POST \
+              "$url" -H "Authorization: Bearer test" -H "Content-Type: application/json" \
+              -d '{"model":"command","message":"hi"}' 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== DEEPINFRA MODELS ==='
+          curl -s --max-time 15 "https://api.deepinfra.com/v1/models" 2>/dev/null | head -c 1000
+          echo ''
+
+          echo ''
+          echo '=== TOGETHER AI ==='
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 \
+            "https://api.together.xyz/v1/models" 2>/dev/null || echo "FAIL"
+          curl -s --max-time 10 "https://api.together.xyz/v1/models" 2>/dev/null | head -c 500
+          echo ''
+
+          echo ''
+          echo '=== GROQ MODELS ==='
+          curl -s --max-time 10 "https://api.groq.com/openai/v1/models" 2>/dev/null | head -c 1000
+          echo ''
+
+          echo ''
+          echo '=== OPENROUTER MODELS ==='
+          curl -s --max-time 10 "https://openrouter.ai/api/v1/models" 2>/dev/null | head -c 500
+          echo ''
+
+          echo '=== COMPLETE ==='
