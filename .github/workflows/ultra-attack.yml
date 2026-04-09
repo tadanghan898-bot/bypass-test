@@ -1,0 +1,130 @@
+name: Ultra Total Warfare v2
+on:
+  workflow_dispatch:
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ULTRA ATTACK - ALL FREE APIs
+        run: |
+          echo '========================================'
+          echo 'ULTRA TOTAL WARFARE v2 - ALL FREE APIs'
+          echo '========================================'
+
+          echo '--- IMAGE-TO-3D SERVICES ---'
+
+          echo 'MESHY IMAGE-TO-3D:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 -X POST \
+            'https://api.meshy.ai/openapi/v1/image-to-3d' \
+            -H 'Authorization: Bearer test' \
+            -H 'Content-Type: application/json' \
+            -H 'X-Api-Version: v2026.04.03.post7' \
+            -d '{"image_url":"test"}' 2>/dev/null
+          echo ''
+
+          echo 'TRIPO3D:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.tripo3d.ai/v2/models' 2>/dev/null
+          echo ''
+
+          echo 'LUMA LABS:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.lumalabs.ai/' 2>/dev/null
+          echo ''
+
+          echo 'STABILITY AI:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.stability.ai/v1/engines' 2>/dev/null
+          echo ''
+
+          echo 'REPLICATE:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.replicate.com/v1/models?q=image-to-3d' 2>/dev/null
+          echo ''
+
+          echo '--- VIDEO GENERATION ---'
+
+          echo 'RUNWAY:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.runwayml.com/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'PIKA LABS:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.pika.art/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'LUMA DREAM MACHINE:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.lumalabs.ai/dream-machine/v1' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'KLING AI:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.klingai.com/v1/models' 2>/dev/null || echo 'FAIL'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api-v2.klingai.com/v1' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'HAIPER AI:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.haiper.ai/v1' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'GENMO:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.genmo.ai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo '--- IMAGE GENERATION ---'
+
+          echo 'IDEOGRAM:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.ideogram.ai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'RECRAFT:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.recraft.ai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo '--- TEXT/CODE AI ---'
+
+          echo 'GROQ:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.groq.com/openai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'TOGETHER AI:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.together.xyz/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'CEREBRAS:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.cerebras.ai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'OPENROUTER:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://openrouter.ai/api/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'LEPTON AI:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://llm.lepton.ai/api/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo 'COHERE:'
+          curl -s -o /dev/null -w 'HTTP:%{http_code}' --max-time 10 \
+            'https://api.cohere.ai/v1/models' 2>/dev/null || echo 'FAIL'
+          echo ''
+
+          echo '--- HuggingFace ---'
+          echo 'HF IMAGE-TO-3D MODELS:'
+          curl -s --max-time 10 \
+            'https://huggingface.co/api/models?search=image+to+3d&limit=5' 2>/dev/null | head -c 500
+          echo ''
+
+          echo '=== ULTRA ATTACK COMPLETE ==='
