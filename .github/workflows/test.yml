@@ -1,0 +1,34 @@
+name: Connectivity Test
+on: [push, workflow_dispatch]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "=== CONNECTIVITY TEST FROM GITHUB ACTIONS ==="
+          echo "csm.ai:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://csm.ai || echo FAIL
+          echo ""
+          echo "api.tripo3d.ai:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.tripo3d.ai || echo FAIL
+          echo ""
+          echo "api.meshy.ai:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.meshy.ai || echo FAIL
+          echo ""
+          echo "api.poly.cam:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.poly.cam || echo FAIL
+          echo ""
+          echo "api.lumalabs.ai:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.lumalabs.ai || echo FAIL
+          echo ""
+          echo "api.stability.ai:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.stability.ai || echo FAIL
+          echo ""
+          echo "api.replicate.com:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.replicate.com || echo FAIL
+          echo ""
+          echo "huggingface.co:"
+          curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://huggingface.co || echo FAIL
+          echo ""
+          echo "CSM AI - GET /api/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://csm.ai/api/models || echo FAIL
