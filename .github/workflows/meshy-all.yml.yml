@@ -1,0 +1,254 @@
+name: Meshy AI - ALL 10 Endpoints
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: 'Endpoint: image_to_3d, text_to_3d, remesh, rigging, retexture, text_to_image, image_to_image, balance, animations'
+        required: true
+        default: 'image_to_3d'
+      image_url:
+        description: 'Image URL (for image_to_3d, image_to_image)'
+        required: false
+      prompt:
+        description: 'Text prompt (for text_to_3d, text_to_image)'
+        required: false
+      model_url:
+        description: 'Model URL (for remesh, rigging, retexture, animations)'
+        required: false
+      task_id:
+        description: 'Task ID (for animations)'
+        required: false
+      model:
+        description: 'AI Model (e.g. meshmadern-v1, meshy-6)'
+        required: false
+        default: 'meshmadern-v1'
+      target_polycount:
+        description: 'Target polygon count (for remesh)'
+        required: false
+        default: '50000'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        run: |
+          echo "Meshy AI - Endpoint: ${{ github.event.inputs.endpoint }}"
+          echo "GitHub Run ID: ${{ github.run_id }}"
+
+      - name: Image to 3D
+        if: github.event.inputs.endpoint == 'image_to_3d'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/image-to-3d" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "image_url": "${{ github.event.inputs.image_url }}",
+              "model": "${{ github.event.inputs.model || '"'"'meshmadern-v1'"'"' }}"
+            }' \
+            -w "\n%{http_code}" \
+            --max-time 60)
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > response.json
+          TASK_ID=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id', d.get('result','')))" 2>/dev/null)
+          echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+          if [ -n "$TASK_ID" ]; then
+            echo "Polling for completion..."
+            for i in $(seq 1 60); do
+              sleep 10
+              STATUS=$(curl -s "https://api.meshy.ai/openapi/v1/image-to-3d/${TASK_ID}" \
+                -H "Authorization: Bearer ${MESHY_API_KEY}" \
+                -H "X-Api-Version: v2026.04.03.post7" \
+                --max-time 30 | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+              echo "Status: $STATUS ($((i*10))s)"
+              if [ "$STATUS" = "SUCCEEDED" ] || [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ]; then
+                curl -s "https://api.meshy.ai/openapi/v1/image-to-3d/${TASK_ID}" \
+                  -H "Authorization: Bearer ${MESHY_API_KEY}" \
+                  -H "X-Api-Version: v2026.04.03.post7" > result.json
+                echo "Final result saved"
+                break
+              fi
+            done
+          fi
+
+      - name: Text to 3D (v2)
+        if: github.event.inputs.endpoint == 'text_to_3d'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v2/text-to-3d" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "mode": "preview",
+              "prompt": "${{ github.event.inputs.prompt }}",
+              "art_style": "realistic",
+              "ai_model": "${{ github.event.inputs.model || '"'"'meshy-6'"'"' }}",
+              "should_remesh": true
+            }' \
+            -w "\n%{http_code}" \
+            --max-time 60)
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > response.json
+          TASK_ID=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id', d.get('result','')))" 2>/dev/null)
+          echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+          if [ -n "$TASK_ID" ]; then
+            for i in $(seq 1 60); do
+              sleep 10
+              STATUS=$(curl -s "https://api.meshy.ai/openapi/v2/text-to-3d/${TASK_ID}" \
+                -H "Authorization: Bearer ${MESHY_API_KEY}" \
+                -H "X-Api-Version: v2026.04.03.post7" \
+                --max-time 30 | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+              echo "Status: $STATUS ($((i*10))s)"
+              if [ "$STATUS" = "SUCCEEDED" ] || [ "$STATUS" = "failed" ]; then
+                curl -s "https://api.meshy.ai/openapi/v2/text-to-3d/${TASK_ID}" \
+                  -H "Authorization: Bearer ${MESHY_API_KEY}" \
+                  -H "X-Api-Version: v2026.04.03.post7" > result.json
+                break
+              fi
+            done
+          fi
+
+      - name: Remesh
+        if: github.event.inputs.endpoint == 'remesh'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/remesh" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "input_task_id": "${{ github.event.inputs.model_url }}",
+              "target_polygon_count": ${{ github.event.inputs.target_polycount || 50000 }},
+              "topology": "quad",
+              "target_formats": ["glb","fbx","obj","stl"]
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Rigging
+        if: github.event.inputs.endpoint == 'rigging'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/rigging" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "model_url": "${{ github.event.inputs.model_url }}",
+              "type": "auto",
+              "height_meters": 1.7
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Retexture
+        if: github.event.inputs.endpoint == 'retexture'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/retexture" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "model_url": "${{ github.event.inputs.model_url }}",
+              "enable_pbr": true,
+              "remove_lighting": true
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Text to Image
+        if: github.event.inputs.endpoint == 'text_to_image'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/text-to-image" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "prompt": "${{ github.event.inputs.prompt }}",
+              "ai_model": "nano-banana",
+              "aspect_ratio": "16:9"
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Image to Image
+        if: github.event.inputs.endpoint == 'image_to_image'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/image-to-image" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "image_url": "${{ github.event.inputs.image_url }}",
+              "prompt": "${{ github.event.inputs.prompt }}"
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Balance Check
+        if: github.event.inputs.endpoint == 'balance'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          echo "Checking Meshy AI credits..."
+          curl -s "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "X-Api-Version: v2026.04.03.post7" > balance.json
+          cat balance.json
+
+      - name: Animations
+        if: github.event.inputs.endpoint == 'animations'
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.meshy.ai/openapi/v1/animations" \
+            -H "Authorization: Bearer ${MESHY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{
+              "rig_task_id": "${{ github.event.inputs.task_id }}",
+              "action_id": 92,
+              "post_process": {
+                "operation_type": "change_fps",
+                "fps": 30
+              }
+            }' \
+            -w "\n%{http_code}" --max-time 60)
+          echo "$RESPONSE" > response.json
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-result-${{ github.run_id }}
+          path: |
+            response.json
+            result.json
+            balance.json
+          retention-days: 7
