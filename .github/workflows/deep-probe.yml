@@ -1,0 +1,107 @@
+name: Deep Probe 3D APIs
+on: [workflow_dispatch]
+jobs:
+  tripo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tripo3D API Deep Probe
+        run: |
+          echo "=== TRIPO3D DEEP PROBE ==="
+          echo "GET /:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/ 2>/dev/null | tail -2
+          echo "GET /v2/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/v2/models 2>/dev/null | tail -2
+          echo "GET /v1/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/v1/models 2>/dev/null | tail -2
+          echo "GET /docs:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/docs 2>/dev/null | tail -2
+          echo "GET /api:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/api 2>/dev/null | tail -2
+          echo "GET /openapi.json:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.tripo3d.ai/openapi.json 2>/dev/null | tail -2
+          echo "HEADERS:"
+          curl -s -I --max-time 10 https://api.tripo3d.ai/ 2>/dev/null | head -15
+  luma:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Luma Labs API Deep Probe
+        run: |
+          echo "=== LUMA LABS DEEP PROBE ==="
+          echo "GET /:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/ 2>/dev/null | tail -2
+          echo "GET /api:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/api 2>/dev/null | tail -2
+          echo "GET /v1/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/v1/models 2>/dev/null | tail -2
+          echo "GET /v2/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/v2/models 2>/dev/null | tail -2
+          echo "GET /3d/free:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/3d/free 2>/dev/null | tail -2
+          echo "GET /photonic:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.lumalabs.ai/photonic 2>/dev/null | tail -2
+          echo "HEADERS:"
+          curl -s -I --max-time 10 https://api.lumalabs.ai/ 2>/dev/null | head -15
+  replicate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Replicate API Deep Probe
+        run: |
+          echo "=== REPLICATE DEEP PROBE ==="
+          echo "GET /v1/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.replicate.com/v1/models 2>/dev/null | tail -2
+          echo "GET /v1/predictions:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.replicate.com/v1/predictions 2>/dev/null | tail -2
+          echo "GET /v1/collections:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.replicate.com/v1/collections 2>/dev/null | tail -2
+          echo "GET /v1/collections/image-to-3d:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.replicate.com/v1/collections/image-to-3d 2>/dev/null | tail -2
+          echo "SEARCH 3D models:"
+          curl -s "https://api.replicate.com/v1/models?q=3d&visibility=public" --max-time 10 -w "\n%{http_code}" 2>/dev/null | tail -2
+          echo "SEARCH mesh models:"
+          curl -s "https://api.replicate.com/v1/models?q=mesh&visibility=public" --max-time 10 -w "\n%{http_code}" 2>/dev/null | tail -2
+  meshy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meshy API Deep Probe
+        run: |
+          echo "=== MESHY AI DEEP PROBE ==="
+          echo "GET /:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.meshy.ai/ 2>/dev/null | tail -2
+          echo "GET /v1:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.meshy.ai/v1 2>/dev/null | tail -2
+          echo "GET /v1/models:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.meshy.ai/v1/models 2>/dev/null | tail -2
+          echo "GET /v1/tasks:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.meshy.ai/v1/tasks 2>/dev/null | tail -2
+          echo "GET /v1/text-to-image:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.meshy.ai/v1/text-to-image 2>/dev/null | tail -2
+          echo "HEADERS:"
+          curl -s -I --max-time 10 https://api.meshy.ai/ 2>/dev/null | head -15
+  stability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stability AI Deep Probe
+        run: |
+          echo "=== STABILITY AI DEEP PROBE ==="
+          echo "GET /:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.stability.ai/ 2>/dev/null | tail -2
+          echo "GET /v1/balance:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.stability.ai/v1/balance 2>/dev/null | tail -2
+          echo "GET /v1/user/balance:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.stability.ai/v1/user/balance 2>/dev/null | tail -2
+          echo "GET /v1/engines:"
+          curl -s -w "\n%{http_code}" --max-time 10 https://api.stability.ai/v1/engines 2>/dev/null | tail -2
+          echo "HEADERS:"
+          curl -s -I --max-time 10 https://api.stability.ai/ 2>/dev/null | head -15
+  hf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HuggingFace Inference Deep Probe
+        run: |
+          echo "=== HUGGINGFACE DEEP PROBE ==="
+          echo "GET /api/models/image-to-3d:"
+          curl -s "https://huggingface.co/api/models?search=image+to+3d&sort=downloads&direction=-1&limit=5" --max-time 10 -w "\n%{http_code}" 2>/dev/null | tail -2
+          echo "GET InstantMesh:"
+          curl -s "https://huggingface.co/api/models/TencentARC/InstantMesh" --max-time 10 -w "\n%{http_code}" 2>/dev/null | tail -2
+          echo "GET Hunyuan3D-2:"
+          curl -s "https://huggingface.co/api/models/tencent/Hunyuan3D-2" --max-time 10 -w "\n%{http_code}" 2>/dev/null | tail -2
