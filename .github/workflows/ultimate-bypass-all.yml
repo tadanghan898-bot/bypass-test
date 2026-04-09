@@ -1,0 +1,341 @@
+name: ULTIMATE BYPASS - ALL CATEGORIES
+on:
+  workflow_dispatch:
+
+jobs:
+  # ============ 3D GENERATION ============
+  hf-3d-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF 3D Models Scan
+        run: |
+          echo '=== HF 3D GENERATION MODELS ==='
+
+          # Image to 3D
+          echo '-- Image to 3D --'
+          for model in "tencent/Hunyuan3D-2" "tencent/Hunyuan3D-2.1" "tencent/Hunyuan3D-2mini" "TencentARC/InstantMesh" "CompVis/stable-diffusion-v1-4"; do
+            echo -n "$model: "
+            curl -s --max-time 10 "https://huggingface.co/api/models/$model" 2>/dev/null | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(f'{d.get(\"downloads\",0):,} downloads, tags={d.get(\"tags\",[])[:3]}')" 2>/dev/null || echo "FAIL"
+          done
+
+          # Gaussian Splatting
+          echo '-- Gaussian Splatting --'
+          for model in "camenduru/gaussian-splatting" "kishimisu/3d-gaussian-splatting-webgl"; do
+            echo -n "$model: "
+            curl -s --max-time 10 "https://huggingface.co/api/models/$model" 2>/dev/null | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(f'{d.get(\"downloads\",0):,} downloads')" 2>/dev/null || echo "FAIL"
+          done
+
+          # Search 3D
+          echo '-- Search: 3D generation --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=3d+generation&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+          # Search image to 3D
+          echo '-- Search: image-to-3d --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=image-to-3d&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+          # Search gaussian splatting
+          echo '-- Search: gaussian-splatting --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=gaussian+splatting&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+  hf-3d-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF 3D Spaces
+        run: |
+          echo '=== HF 3D SPACES ==='
+
+          echo '-- Top 3D Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=3d&sort=likes&direction=-1&limit=20" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes | sdk={s.get(\"sdk\",s.get(\"runtime\",\"?\"))}')" 2>/dev/null
+
+          echo '-- Image-to-3D Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=image+to+3d&sort=likes&direction=-1&limit=20" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Hunyuan3D --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=Hunyuan3D&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Mesh Generation --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=mesh+generation&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+  # ============ IMAGE GENERATION ============
+  hf-image-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Image Generation Models
+        run: |
+          echo '=== HF IMAGE GENERATION MODELS ==='
+
+          echo '-- Stable Diffusion --'
+          for model in "stabilityai/stable-diffusion-xl-base-1.0" "stable-diffusion-v1-5/stable-diffusion-v1-5" "stabilityai/stable-diffusion-2-1" "stabilityai/sdxl-turbo" "black-forest-labs/FLUX.1-schnell" "black-forest-labs/FLUX.1-dev"; do
+            echo -n "$model: "
+            curl -s --max-time 10 "https://huggingface.co/api/models/$model" 2>/dev/null | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(f'{d.get(\"downloads\",0):,} downloads')" 2>/dev/null || echo "FAIL"
+          done
+
+          echo '-- Search: text-to-image --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=text-to-image&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+  hf-image-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Image Spaces
+        run: |
+          echo '=== HF IMAGE SPACES ==='
+
+          echo '-- Text-to-Image Top Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=text-to-image&sort=likes&direction=-1&limit=20" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- FLUX Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=FLUX&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Stable Diffusion WebUI Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=stable-diffusion&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+  # ============ VIDEO GENERATION ============
+  hf-video-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Video Models
+        run: |
+          echo '=== HF VIDEO GENERATION MODELS ==='
+
+          echo '-- Video Diffusion --'
+          for model in "stabilityai/stable-video-diffusion-img2vid-xt" "Kijai/WanVideo_comfy" "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"; do
+            echo -n "$model: "
+            curl -s --max-time 10 "https://huggingface.co/api/models/$model" 2>/dev/null | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(f'{d.get(\"downloads\",0):,} downloads')" 2>/dev/null || echo "FAIL"
+          done
+
+          echo '-- Search: video generation --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=video+generation&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+  hf-video-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Video Spaces
+        run: |
+          echo '=== HF VIDEO SPACES ==='
+
+          echo '-- Video Generation Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=video+generation&sort=likes&direction=-1&limit=20" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Wan2 Video --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=wan2&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- SORA-like --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=sora&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+  # ============ LLM MODELS ============
+  hf-llm-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF LLM Models
+        run: |
+          echo '=== HF LLM MODELS ==='
+
+          echo '-- Top LLMs --'
+          for model in "meta-llama/Llama-3.1-8B-Instruct" "meta-llama/Llama-3.2-3B-Instruct" "Qwen/Qwen2.5-7B-Instruct" "Qwen/Qwen3-8B" "mistralai/Mistral-7B-Instruct-v0.3" "deepseek-ai/DeepSeek-V2.5"; do
+            echo -n "$model: "
+            curl -s --max-time 10 "https://huggingface.co/api/models/$model" 2>/dev/null | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(f'{d.get(\"downloads\",0):,} downloads')" 2>/dev/null || echo "FAIL"
+          done
+
+          echo '-- Search: instruct model --'
+          curl -s --max-time 15 "https://huggingface.co/api/models?search=instruct&sort=downloads&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    print(f'  {m[\"id\"]} | {m.get(\"downloads\",0):,} downloads')" 2>/dev/null
+
+  # ============ AUDIO / TTS ============
+  hf-audio-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Audio Spaces
+        run: |
+          echo '=== HF AUDIO / TTS SPACES ==='
+
+          echo '-- TTS Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=TTS&sort=likes&direction=-1&limit=15" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Voice Clone Spaces --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=voice+clone&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Music Generation --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=music+generation&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+  # ============ MULTIMODAL ============
+  hf-multimodal-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HF Multimodal Spaces
+        run: |
+          echo '=== HF MULTIMODAL SPACES ==='
+
+          echo '-- Vision Language Models --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=vision+language&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Image Editing --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=image+edit&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+          echo '-- Background Removal --'
+          curl -s --max-time 15 "https://huggingface.co/api/spaces?search=background+removal&sort=likes&direction=-1&limit=10" 2>/dev/null | python3 -c "
+import sys,json
+for s in json.load(sys.stdin):
+    print(f'  {s[\"id\"]} | {s.get(\"likes\",0):,} likes')" 2>/dev/null
+
+  # ============ AI PROXY SERVICES ============
+  ai-proxy-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: AI Proxy Services Connectivity
+        run: |
+          echo '=== AI PROXY SERVICES CONNECTIVITY ==='
+
+          echo '-- Groq --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.groq.com/openai/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Together AI --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.together.xyz/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Cerebras --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.cerebras.ai/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- DeepInfra --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.deepinfra.com/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- OpenRouter --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://openrouter.ai/api/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Lepton AI --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://llm.lepton.ai/api/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Replicate --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.replicate.com/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Anyscale --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.endpoints.anyscale.com/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Perplexity --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.perplexity.ai/models" 2>/dev/null || echo "FAIL"
+
+  # ============ 3D CLOUD SERVICES ============
+  cloud-3d-services:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 3D Cloud Services
+        run: |
+          echo '=== 3D CLOUD SERVICES ==='
+
+          echo '-- Meshy AI --'
+          for ep in image-to-3d text-to-3d remesh rigging retexture text-to-image balance; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X POST \
+              "https://api.meshy.ai/openapi/v1/$ep" \
+              -H "Authorization: Bearer test" \
+              -H "Content-Type: application/json" \
+              -H "X-Api-Version: v2026.04.03.post7" \
+              -d '{}' 2>/dev/null || echo "FAIL")
+            echo "  $ep: $code"
+          done
+
+          echo '-- Tripo3D --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.tripo3d.ai/" 2>/dev/null || echo "FAIL"
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.tripo3d.ai/v2/models" 2>/dev/null || echo "FAIL"
+
+          echo '-- Luma Labs --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.lumalabs.ai/" 2>/dev/null || echo "FAIL"
+
+          echo '-- Stability AI --'
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.stability.ai/v1/engines" 2>/dev/null || echo "FAIL"
+
+          echo '-- Zero123++ via Replicate --'
+          curl -s "https://api.replicate.com/v1/models" 2>/dev/null | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+for m in data.get('results',[]):
+    if 'zero' in m.get('name','').lower() or '3d' in m.get('name','').lower() or 'splat' in m.get('name','').lower():
+        print(f'  {m[\"owner\"]}/{m[\"name\"]}')" 2>/dev/null || echo "FAIL"
+
+  # ============ SUMMARY ============
+  summary:
+    runs-on: ubuntu-latest
+    needs: [hf-3d-models, hf-3d-spaces, hf-image-models, hf-image-spaces, hf-video-models, hf-video-spaces, hf-llm-models, hf-audio-spaces, hf-multimodal-spaces, ai-proxy-test, cloud-3d-services]
+    steps:
+      - name: Summary
+        run: |
+          echo '=============================================='
+          echo 'ULTIMATE BYPASS - ALL CATEGORIES COMPLETE'
+          echo '=============================================='
+          echo 'All 11 scan jobs completed!'
+          echo ''
+          echo 'CATEGORIES SCANNED:'
+          echo '  - 3D Generation Models & Spaces'
+          echo '  - Image Generation Models & Spaces'
+          echo '  - Video Generation Models & Spaces'
+          echo '  - LLM Models'
+          echo '  - Audio / TTS Spaces'
+          echo '  - Multimodal Spaces'
+          echo '  - AI Proxy Services'
+          echo '  - 3D Cloud Services'
+          echo ''
+          echo 'TOTAL: 11 parallel jobs = MAXIMUM COVERAGE'
