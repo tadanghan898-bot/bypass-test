@@ -1,0 +1,132 @@
+name: Meshy AI Total Warfare
+on: [workflow_dispatch]
+
+jobs:
+  meshy-comprehensive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: MESHY AI - EVERY POSSIBLE ENDPOINT
+        run: |
+          echo "MESHY AI TOTAL ENDPOINT DISCOVERY"
+          echo "=== 1. EXHAUSTIVE GET PATHS ==="
+          for path in "/" "/v1" "/v2" "/api" "/api/v1" "/openapi" "/openapi.json" "/swagger" "/swagger.json" "/docs" "/health" "/ping" "/status" "/api/v1/health" "/api/v1/status" "/api/v1/models" "/api/v1/tasks" "/api/v1/generations" "/api/v1/jobs" "/api/v1/queue" "/api/v1/credits" "/api/v1/account" "/api/v1/user" "/api/v1/profile" "/api/v1/subscription" "/api/v1/billing" "/v1/models/list" "/v1/tasks/list" "/v1/credits" "/v1/account" "/v1/auth" "/v1/login" "/v1/register" "/v1/keys" "/v1/tokens" "/v1/version" "/v1/info" "/v1/pricing" "/v1/plans" "/v1/limits" "/v1/usage" "/v1/stats" "/v1/dashboard" "/v1/workspace" "/v1/workspaces" "/v1/projects" "/v1/files" "/v1/uploads" "/v1/downloads" "/v1/exports"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "GET ${path}: $code"
+            fi
+          done
+          echo "=== 2. EXHAUSTIVE POST PATHS ==="
+          for path in "/v1/models" "/v1/tasks" "/v1/generations" "/v1/jobs" "/v1/credits" "/v1/auth" "/v1/keys" "/v1/image-to-3d" "/v1/text-to-3d" "/v1/text-to-image-to-3d" "/v1/image-to-mesh" "/v1/depth-to-3d" "/v1/generate" "/v1/create" "/v1/submit" "/v1/process" "/v1/uploads" "/v1/exports"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "https://api.meshy.ai${path}" -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "POST ${path}: $code"
+            fi
+          done
+          echo "=== 3. ALTERNATIVE SUBDOMAINS ==="
+          for subdomain in "api" "app" "www" "dashboard" "console" "studio" "beta" "rest" "graphql" "webapi"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${subdomain}.meshy.ai/" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "https://${subdomain}.meshy.ai/: $code"
+            fi
+          done
+          echo "=== 4. DIFFERENT DOMAINS ==="
+          for domain in "meshy.io" "meshyapi.io" "mesh-api.ai" "mesh-ai.io" "meshadge.ai" "meshadge.io" "mesh3d.ai" "mesh3d.io" "aimesh.ai" "ai-mesh.com"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://api.${domain}/" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "https://api.${domain}/: $code"
+            fi
+          done
+          echo "=== 5. HEADERS ANALYSIS ==="
+          curl -sI --max-time 5 "https://api.meshy.ai/" 2>/dev/null
+          echo ""
+          curl -sI --max-time 5 -X OPTIONS "https://api.meshy.ai/v1/image-to-3d" 2>/dev/null
+
+  meshy-auth-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meshy AI - Auth and Model Discovery
+        run: |
+          echo "MESHY AI AUTH AND MODEL DISCOVERY"
+          echo "=== MESHY.AI WEBSITE SCRAPING ==="
+          curl -s --max-time 15 "https://meshy.ai" 2>/dev/null | grep -oE "(api|endpoint|route|/v[0-9]/[a-zA-Z0-9_-]+|Authorization|Bearer|token)[^<\"]*" | sort -u | head -50
+          echo "=== TRYING COMMON 3D API PATTERNS ==="
+          for pattern in "image-to-3d" "text-to-3d" "text-to-mesh" "image-to-mesh" "depth-to-3d" "depth-estimation" "normal-to-3d" "mesh-generation" "3d-generation" "model-generation" "object-creation" "scene-generation" "gaussian-splatting" "nerf" "point-cloud" "voxelization" "texture-generation" "splat-to-3d" "splatting" "radiance-field"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/v1/${pattern}" -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "POST /v1/${pattern}: $code"
+            fi
+          done
+          echo "=== TRYING MULTI-MODEL PATHS ==="
+          for model in "meshmadern-v1" "meshmadern-v2" "meshmadern" "meshrefine-v1" "meshrefine" "meshfast-v1" "meshfast" "meshpro-v1" "meshupload" "meshbase" "meshhq" "meshturbo" "meshdream" "meshgen" "meshai" "mesh3d" "meshadge-v1" "meshadge" "meshcore" "meshadge-v2"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"model\":\"${model}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "POST /v1/image-to-3d model=${model}: $code"
+            fi
+          done
+          echo "=== TRYING FORMAT OPTIONS ==="
+          for fmt in "glb" "gltf" "obj" "fbx" "usdz" "ply" "stl" "3ds" "dae" "3mf"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"format\":\"${fmt}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "POST /v1/image-to-3d format=${fmt}: $code"
+            fi
+          done
+          echo "=== TRYING QUALITY OPTIONS ==="
+          for quality in "preview" "standard" "high" "ultra" "4k" "2k" "hd" "fhd" "fast" "balanced" "quality"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 -X POST "https://api.meshy.ai/v1/image-to-3d" -H "Content-Type: application/json" -d "{\"quality\":\"${quality}\",\"image_url\":\"https://example.com/test.jpg\"}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "POST /v1/image-to-3d quality=${quality}: $code"
+            fi
+          done
+          echo "=== TRYING TASK STATUS PATHS ==="
+          for path in "/v1/tasks/status" "/v1/tasks/result" "/v1/tasks/output" "/v1/tasks/download" "/v1/tasks/mesh" "/v1/tasks/glb" "/v1/tasks/obj" "/v1/tasks/fbx" "/v1/tasks/file" "/v1/tasks/model"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "GET ${path}: $code"
+            fi
+          done
+          echo "=== NPM PACKAGES ==="
+          curl -s --max-time 10 "https://registry.npmjs.org/meshy" 2>/dev/null | grep -oE "(repository|homepage)[^,]*" | head -5 || echo "No npm package"
+          curl -s --max-time 10 "https://registry.npmjs.org/@meshy/api" 2>/dev/null | grep -oE "(repository|homepage)[^,]*" | head -5 || echo "No @meshy package"
+
+  meshy-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meshy AI - OpenAPI Discovery
+        run: |
+          echo "MESHY AI OPENAPI/SWAGGER DISCOVERY"
+          echo "=== STANDARD OPENAPI PATHS ==="
+          for path in "/openapi.json" "/openapi.yaml" "/swagger.json" "/swagger.yaml" "/api-docs.json" "/api.json" "/api.yaml" "/docs/openapi.json" "/v1/openapi.json" "/v2/openapi.json" "/v1/api-docs.json" "/api/v1/openapi.json" "/swagger/v1" "/api-docs" "/reference" "/reference.json" "/schema" "/schema.json"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "GET ${path}: $code"
+              if [ "$code" = "200" ]; then
+                echo "--- PREVIEW ---"
+                curl -s --max-time 5 "https://api.meshy.ai${path}" 2>/dev/null | head -30
+                echo "--- END ---"
+              fi
+            fi
+          done
+          echo "=== SCRAPING GITHUB ==="
+          curl -s --max-time 10 "https://raw.githubusercontent.com/meshadge/meshy/main/README.md" 2>/dev/null | head -20 || echo "No repo"
+          curl -s --max-time 10 "https://raw.githubusercontent.com/meshy-ai/api/main/README.md" 2>/dev/null | head -20 || echo "No api repo"
+          curl -s --max-time 10 "https://raw.githubusercontent.com/meshyai/meshy/main/README.md" 2>/dev/null | head -20 || echo "No meshyai repo"
+          echo "=== SCRAPING DOCS SITE ==="
+          for doc in "docs.meshy.ai" "meshy.ai/docs" "meshy.ai/api" "developers.meshy.ai" "developers.meshy.ai/api" "reference.meshy.ai" "api.meshy.ai/docs"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${doc}/" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "https://${doc}/: $code"
+              content=$(curl -s --max-time 10 "https://${doc}/" 2>/dev/null)
+              echo "$content" | grep -oE "(api|endpoint|/v[0-9]/|route)[^<\"]*" | sort -u | head -20
+            fi
+          done
+          echo "=== TRYING OPENAPI AT DOCS SITES ==="
+          for path in "/openapi.json" "/api/openapi.json" "/reference/openapi.json" "/api-reference.json" "/v1/openapi.json"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://docs.meshy.ai${path}" 2>/dev/null || echo "FAIL")
+            if [ "$code" != "000" ] && [ "$code" != "FAIL" ]; then
+              echo "https://docs.meshy.ai${path}: $code"
+              if [ "$code" = "200" ]; then
+                curl -s --max-time 10 "https://docs.meshy.ai${path}" 2>/dev/null | head -50
+              fi
+            fi
+          done
