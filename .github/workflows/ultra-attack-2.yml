@@ -1,0 +1,72 @@
+name: ULTRA ATTACK v3 - Image Models
+on:
+  workflow_dispatch:
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ULTRA ATTACK v3
+        run: |
+          echo '=== IMAGE-TO-3D MODELS ON HUGGINGFACE ==='
+          for model in "tencent/Hunyuan3D-2" "TencentARC/InstantMesh" "tencent/Hunyuan3D-2.1" "tencent/Hunyuan3D-2mini" "CompVis/stable-diffusion" "stabilityai/stable-diffusion-3-medium" "stabilityai/sd-turbo" "stabilityai/sdxl-turbo" "black-forest-labs/FLUX.1-dev" "black-forest-labs/FLUX.1-schnell"; do
+            echo "MODEL: $model"
+            curl -s -o /dev/null -w "  HTTP:%{http_code} SIZE:%{size_download}\n" --max-time 10 \
+              "https://huggingface.co/api/models/$model" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== GOOGLE GEMINI / VERTEX ==='
+          for url in "https://generativelanguage.googleapis.com/v1/models" "https://aiplatform.googleapis.com/v1/models"; do
+            echo "URL: $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 "$url" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== CLOUDFLARE AI ==='
+          for url in "https://api.cloudflare.com/client/v4/ai" "https://ai.cloudflare.com/api/v1/models"; do
+            echo "URL: $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 "$url" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== NEBIUS (formerly Yandex) ==='
+          for url in "https://api.nebius.ai/v1/models" "https://studio.nebius.ai/api/v1/models"; do
+            echo "URL: $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 "$url" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== SCALE AI ==='
+          for url in "https://api.scale.com/v1/models" "https://scale.com/api/v1/models"; do
+            echo "URL: $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 "$url" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== DEEPINFRA ==='
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.deepinfra.com/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '=== ANTHROPIC (if accessible) ==='
+          curl -s -o /dev/null -w "HTTP:%{http_code}\n" --max-time 10 "https://api.anthropic.com/v1/models" 2>/dev/null || echo "FAIL"
+
+          echo ''
+          echo '=== IMAGE 3D APIs ==='
+          for url in "https://api.meshy.ai/openapi/v1/image-to-3d" "https://api.meshy.ai/openapi/v1/text-to-3d" "https://api.meshy.ai/openapi/v1/remesh" "https://api.meshy.ai/openapi/v1/rigging" "https://api.meshy.ai/openapi/v1/retexture"; do
+            echo "POST $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 -X POST \
+              "$url" -H "Authorization: Bearer TEST" -H "Content-Type: application/json" \
+              -H "X-Api-Version: v2026.04.03.post7" \
+              -d '{}' 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== OTHER 3D SERVICES ==='
+          for url in "https://api.replicate.com/v1/models?q=3d" "https://api.tripo3d.ai/v2/models" "https://api.tripo3d.ai/v1/models"; do
+            echo "GET $url"
+            curl -s -o /dev/null -w "  HTTP:%{http_code}\n" --max-time 10 "$url" 2>/dev/null || echo "  FAIL"
+          done
+
+          echo ''
+          echo '=== COMPLETE ==='
