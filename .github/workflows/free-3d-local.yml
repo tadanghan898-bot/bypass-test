@@ -81,7 +81,7 @@ jobs:
 
               # For text-to-3D, use Shap-E (smaller, faster)
               from shap_e.models.download import load_model
-              from shap_e.rendering/blender import create_samples
+              from shap_e.rendering.blender import create_samples
               from shap_e.util.notebooks import create_video
               print("Shap-E models loaded!")
 
