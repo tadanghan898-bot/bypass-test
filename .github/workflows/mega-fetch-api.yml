@@ -1,0 +1,61 @@
+name: MEGA FETCH GAMES API
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: 'Game'
+        required: true
+        type: choice
+        options:
+        - all
+        - 2048
+        - tetris
+        - breakout
+        - snake
+        - pong
+        - chrome-dino
+        - space-invaders
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch all
+        if: inputs.game == 'all'
+        run: |
+          mkdir -p games/2048/style games/2048/js games/tetris games/breakout games/snake games/pong games/chrome-dino games/space-invaders
+          # 2048
+          API="https://api.github.com/repos/gabrielecirulli/2048/contents"
+          for f in index.html style/main.css js/game.js js/bind_polyfill.js js/class_list_polyfill.js js/animframe_polyfill.js js/keyboard_input_manager.js js/html_actuator.js js/local_storage_manager.js js/grid.js js/tile.js js/vector.js; do
+            curl -sL -A "Mozilla/5.0" "$API/$f" -o "games/$f" && echo "2048/$f: $(wc -c < games/$f)b" || echo "2048/$f FAIL"
+          done
+          # Tetris
+          API2="https://api.github.com/repos/CodeExplainedRepo/Tetris-JavaScript/contents"
+          for f in index.html style.css script.js; do
+            curl -sL -A "Mozilla/5.0" "$API2/$f" -o "games/tetris/$f" && echo "tetris/$f: $(wc -c < games/tetris/$f)b" || echo "tetris/$f FAIL"
+          done
+          # Breakout
+          curl -sL -A "Mozilla/5.0" "https://api.github.com/repos/platzh1rsch/echoplexus/contents/public/game/breakout.html" -o games/breakout/index.html && echo "breakout: $(wc -c < games/breakout/index.html)b"
+          # Snake
+          curl -sL -A "Mozilla/5.0" "https://api.github.com/repos/platzh1rsch/echoplexus/contents/public/game/snake.html" -o games/snake/index.html && echo "snake: $(wc -c < games/snake/index.html)b"
+          # Pong
+          curl -sL -A "Mozilla/5.0" "https://api.github.com/repos/platzh1rsch/echoplexus/contents/public/game/pong.html" -o games/pong/index.html && echo "pong: $(wc -c < games/pong/index.html)b"
+          # Chrome Dino
+          curl -sL -A "Mozilla/5.0" "https://api.github.com/repos/substack/chrome-dino/contents/index.html" -o games/chrome-dino/index.html && echo "dino: $(wc -c < games/chrome-dino/index.html)b"
+          # Space Invaders
+          curl -sL -A "Mozilla/5.0" "https://api.github.com/repos/simonparis/Phaser-Space-Invaders/contents/index.html" -o games/space-invaders/index.html && echo "space: $(wc -c < games/space-invaders/index.html)b"
+      - name: Fetch 2048 only
+        if: inputs.game == '2048'
+        run: |
+          mkdir -p games/2048/style games/2048/js
+          API="https://api.github.com/repos/gabrielecirulli/2048/contents"
+          for f in index.html style/main.css js/game.js js/bind_polyfill.js js/class_list_polyfill.js js/animframe_polyfill.js js/keyboard_input_manager.js js/html_actuator.js js/local_storage_manager.js js/grid.js js/tile.js js/vector.js; do
+            curl -sL -A "Mozilla/5.0" "$API/$f" -o "games/$f" && echo "2048/$f: $(wc -c < games/$f)b"
+          done
+      - name: Commit
+        run: |
+          git config user.name "claude"
+          git config user.email "claude@claude.ai"
+          git add -A
+          git commit -m "fetch: ${{ inputs.game }}" || echo "no changes"
+          git push || echo "push skipped"
