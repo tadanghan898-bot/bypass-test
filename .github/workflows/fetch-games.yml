@@ -1,0 +1,37 @@
+name: FETCH GAMES
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to fetch'
+        required: true
+        type: string
+      filename:
+        description: 'Output filename'
+        required: true
+        type: string
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch
+        run: |
+          echo "Fetching: ${{ inputs.url }}"
+          curl -sL "${{ inputs.url }}" -o "${{ inputs.filename }}"
+          SIZE=$(wc -c < "${{ inputs.filename }}")
+          echo "Size: $SIZE bytes"
+          echo "content<<EOF" >> $GITHUB_ENV
+          cat "${{ inputs.filename }}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fetched-${{ inputs.filename }}
+          path: ${{ inputs.filename }}
+      - name: Commit
+        run: |
+          git config user.name "claude"
+          git config user.email "claude@claude.ai"
+          git add "${{ inputs.filename }}"
+          git commit -m "fetch: ${{ inputs.filename }}" || echo "no changes"
+          git push || echo "push skipped"
