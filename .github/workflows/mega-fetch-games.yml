@@ -1,0 +1,106 @@
+name: MEGA FETCH GAMES
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: 'Game name'
+        required: true
+        type: choice
+        options:
+        - all
+        - 2048
+        - breakout
+        - snake
+        - space-invaders
+        - flappy
+        - memory
+        - tetris
+        - pong
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        run: |
+          mkdir -p games
+      - name: Fetch 2048
+        if: inputs.game == 'all' || inputs.game == '2048'
+        run: |
+          mkdir -p games/2048
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/index.html" -o games/2048/index.html
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/style/main.css" -o games/2048/style.css
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/game.js" -o games/2048/game.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/bind_polyfill.js" -o games/2048/bind_polyfill.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/class_list_polyfill.js" -o games/2048/class_list_polyfill.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/animframe_polyfill.js" -o games/2048/animframe_polyfill.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/keyboard_input_manager.js" -o games/2048/keyboard_input_manager.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/html_actuator.js" -o games/2048/html_actuator.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/local_storage_manager.js" -o games/2048/local_storage_manager.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/grid.js" -o games/2048/grid.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/tile.js" -o games/2048/tile.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/js/vector.js" -o games/2048/vector.js
+          curl -sL "https://raw.githubusercontent.com/gabrielecirulli/2048/main/CONTRIBUTING.md" -o games/2048/CONTRIBUTING.md 2>/dev/null || true
+          echo "2048: $(wc -c < games/2048/index.html) bytes"
+      - name: Fetch Breakout
+        if: inputs.game == 'all' || inputs.game == 'breakout'
+        run: |
+          mkdir -p games/breakout
+          curl -sL "https://raw.githubusercontent.com/platzh1rsch/echoplexus/master/public/game/breakout.html" -o games/breakout/index.html
+          echo "Breakout: $(wc -c < games/breakout/index.html) bytes"
+      - name: Fetch Snake
+        if: inputs.game == 'all' || inputs.game == 'snake'
+        run: |
+          mkdir -p games/snake
+          curl -sL "https://raw.githubusercontent.com/platzh1rsch/echoplexus/master/public/game/snake.html" -o games/snake/index.html
+          echo "Snake: $(wc -c < games/snake/index.html) bytes"
+      - name: Fetch Space Invaders
+        if: inputs.game == 'all' || inputs.game == 'space-invaders'
+        run: |
+          mkdir -p games/space-invaders
+          curl -sL "https://raw.githubusercontent.com/simonparis/Phaser-Space-Invaders/master/index.html" -o games/space-invaders/index.html
+          echo "Space Invaders: $(wc -c < games/space-invaders/index.html) bytes"
+      - name: Fetch Flappy Bird
+        if: inputs.game == 'all' || inputs.game == 'flappy'
+        run: |
+          mkdir -p games/flappy
+          curl -sL "https://raw.githubusercontent.com/meth-meth-frog/super-mario/master/index.html" -o games/flappy/index.html
+          echo "Flappy: $(wc -c < games/flappy/index.html) bytes"
+      - name: Fetch Memory
+        if: inputs.game == 'all' || inputs.game == 'memory'
+        run: |
+          mkdir -p games/memory
+          curl -sL "https://raw.githubusercontent.com/substack/snapchat-puzzle/master/index.html" -o games/memory/index.html
+          echo "Memory: $(wc -c < games/memory/index.html) bytes"
+      - name: Fetch Tetris
+        if: inputs.game == 'all' || inputs.game == 'tetris'
+        run: |
+          mkdir -p games/tetris
+          curl -sL "https://raw.githubusercontent.com/CodeExplainedRepo/Tetris-JavaScript/master/index.html" -o games/tetris/index.html
+          curl -sL "https://raw.githubusercontent.com/CodeExplainedRepo/Tetris-JavaScript/master/style.css" -o games/tetris/style.css
+          curl -sL "https://raw.githubusercontent.com/CodeExplainedRepo/Tetris-JavaScript/master/script.js" -o games/tetris/script.js
+          echo "Tetris: $(wc -c < games/tetris/index.html) bytes"
+      - name: Fetch Pong
+        if: inputs.game == 'all' || inputs.game == 'pong'
+        run: |
+          mkdir -p games/pong
+          curl -sL "https://raw.githubusercontent.com/platzh1rsch/echoplexus/master/public/game/pong.html" -o games/pong/index.html
+          echo "Pong: $(wc -c < games/pong/index.html) bytes"
+      - name: Fetch HTML5 Games Collection
+        if: inputs.game == 'all'
+        run: |
+          mkdir -p games/chrome-dino
+          curl -sL "https://raw.githubusercontent.com/substack/chrome-dino/master/index.html" -o games/chrome-dino/index.html
+          echo "Chrome Dino: $(wc -c < games/chrome-dino/index.html) bytes"
+      - name: Commit All
+        run: |
+          git config user.name "claude"
+          git config user.email "claude@claude.ai"
+          git add -A
+          git commit -m "fetch: ${{ inputs.game }}" || echo "no changes"
+          git push || echo "push skipped"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: games-${{ inputs.game }}
+          path: games/
