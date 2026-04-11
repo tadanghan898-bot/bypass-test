@@ -1,0 +1,178 @@
+name: Meshy Full Bypass v2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  full-bypass:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Full Meshy Bypass Pipeline
+        run: |
+          python3 << 'PYEOF'
+          import requests, time, random, string, json, re, sys
+          requests.packages.urllib3.disable_warnings()
+
+          APIKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+
+          print("="*60)
+          print("MESHY AI FULL BYPASS PIPELINE")
+          print("="*60)
+
+          # ===== STEP 1: Create fresh account =====
+          print("\n=== STEP 1: Creating fresh account ===")
+
+          def random_pw():
+              return ''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=22))
+          def random_un():
+              return 'user' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+
+          # Get temp email
+          domain_resp = requests.get("https://api.mail.tm/domains?limit=1", timeout=10)
+          domain = domain_resp.json()['hydra:member'][0]['domain']
+          email = f"{random_un()}@{domain}"
+          password = random_pw()
+          print(f"Email: {email}")
+
+          # Create mailbox
+          requests.post("https://api.mail.tm/accounts",
+              headers={"Content-Type": "application/json"},
+              json={"address": email, "password": password}, timeout=10)
+
+          # Get mail token
+          token_resp = requests.post("https://api.mail.tm/token",
+              headers={"Content-Type": "application/json"},
+              json={"address": email, "password": password}, timeout=10)
+          mail_token = token_resp.json()['token']
+
+          # Create Meshy account
+          resp = requests.post(
+              "https://auth.meshy.ai/auth/v1/signup",
+              headers={"apikey": APIKEY, "content-type": "application/json", "x-client-info": "supabase-js/2.39.0"},
+              json={"email": email, "password": password},
+              timeout=10
+          )
+          print(f"Signup: {resp.status_code}")
+
+          # Wait for verification
+          print("Waiting for verification email...")
+          for i in range(12):
+              time.sleep(10)
+              msg_resp = requests.get("https://api.mail.tm/messages",
+                  headers={"Authorization": f"Bearer {mail_token}"}, timeout=10)
+              messages = msg_resp.json()['hydra:member']
+              if messages:
+                  msg_data = requests.get(f"https://api.mail.tm/messages/{messages[0]['id']}",
+                      headers={"Authorization": f"Bearer {mail_token}"}, timeout=10).json()
+                  text = msg_data.get('text', '') + msg_data.get('html', '')
+                  codes = re.findall(r'\b(\d{6})\b', text)
+                  if codes:
+                      code = codes[0]
+                      print(f"Got code: {code}")
+
+                      verify_resp = requests.post(
+                          "https://auth.meshy.ai/auth/v1/verify",
+                          headers={"apikey": APIKEY, "content-type": "application/json"},
+                          json={"type": "email", "email": email, "token": code},
+                          timeout=10
+                      )
+                      if verify_resp.status_code == 200:
+                          data = verify_resp.json()
+                          access_token = data.get('access_token', '')
+                          refresh_token = data.get('refresh_token', '')
+                          print(f"SUCCESS! Got token")
+                          break
+                      else:
+                          print(f"Verify failed: {verify_resp.status_code} {verify_resp.text[:100]}")
+                          sys.exit(1)
+              print(f"[{i*10}s] waiting...")
+          else:
+              print("FAILED: No verification code")
+              sys.exit(1)
+
+          # ===== STEP 2: Check balance =====
+          print("\n=== STEP 2: Checking balance ===")
+          r = requests.get("https://api.meshy.ai/openapi/v1/balance",
+              headers={"Authorization": f"Bearer {access_token}", "X-Api-Version": "v2026.04.03.post7"},
+              timeout=10)
+          print(f"Balance check: {r.status_code} - {r.text[:200]}")
+
+          # ===== STEP 3: Generate model =====
+          print("\n=== STEP 3: Generating model ===")
+          r = requests.post(
+              "https://api.meshy.ai/openapi/v1/text-to-3d",
+              headers={"Authorization": f"Bearer {access_token}", "X-Api-Version": "v2026.04.03.post7", "Content-Type": "application/json"},
+              json={"prompt": "a cyberpunk warrior", "aiModel": "meshy-5", "resolution": "1024", "task_type": "primary"},
+              timeout=15
+          )
+          print(f"Generation request: {r.status_code}")
+          if r.status_code != 202:
+              print(f"Failed: {r.text[:300]}")
+              sys.exit(1)
+
+          task_id = r.json().get('result', {}).get('taskId') or r.json().get('taskId')
+          print(f"Task ID: {task_id}")
+
+          # Poll
+          print("Polling for completion...")
+          for i in range(90):
+              time.sleep(5)
+              r = requests.get(f"https://api.meshy.ai/openapi/v1/tasks/{task_id}",
+                  headers={"Authorization": f"Bearer {access_token}", "X-Api-Version": "v2026.04.03.post7"},
+                  timeout=10)
+              if r.status_code == 200:
+                  data = r.json()
+                  status = data.get('status', '')
+                  phase = data.get('phase', '')
+                  print(f"[{i*5}s] Status: {status} Phase: {phase}")
+                  if status == 'SUCCEEDED':
+                      gen = data.get('result', {}).get('generate', {})
+                      model_url = gen.get('modelUrl', '')
+                      print(f"\nSUCCESS! Model URL: {model_url[:80]}...")
+
+                      # ===== STEP 4: Try download =====
+                      print("\n=== STEP 4: Attempting GLB download ===")
+                      dr = requests.get(model_url, timeout=15)
+                      print(f"Download: {dr.status_code} ({len(dr.content)} bytes)")
+                      if dr.status_code == 200 and dr.content[:4] == b'glTF':
+                          with open('model.glb', 'wb') as f:
+                              f.write(dr.content)
+                          print(f"SAVED model.glb ({len(dr.content):,} bytes)!")
+                      else:
+                          print(f"Content: {dr.content[:200]}")
+                          print(f"Headers: {dict(dr.headers)}")
+                      break
+              elif r.status_code == 404:
+                  print("Task not found")
+                  break
+          else:
+              print("Timeout")
+
+          # ===== STEP 5: Supabase check =====
+          print("\n=== STEP 5: Supabase connectivity from GHA ===")
+          try:
+              sr = requests.get("https://ynfrecsxfgqnvgfpxcc.supabase.co/auth/v1/health",
+                  headers={"apikey": APIKEY}, timeout=10)
+              print(f"Supabase auth: {sr.status_code} - {sr.text[:100]}")
+          except Exception as e:
+              print(f"Supabase auth ERROR: {e}")
+
+          try:
+              sr2 = requests.get("https://ynfrecsxfgqnvgfpxcc.supabase.co/storage/v1/bucket",
+                  headers={"apikey": APIKEY}, timeout=10)
+              print(f"Supabase storage: {sr2.status_code} - {sr2.text[:200]}")
+          except Exception as e:
+              print(f"Supabase storage ERROR: {e}")
+
+          print("\n" + "="*60)
+          print("PIPELINE COMPLETE")
+          print("="*60)
+          PYEOF
+
+      - name: Upload GLB artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy_glb
+          path: model.glb
+          retention-days: 1
