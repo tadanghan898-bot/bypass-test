@@ -1,0 +1,75 @@
+name: Supabase Storage Proxy
+
+on:
+  workflow_dispatch:
+    inputs:
+      bucketId:
+        description: 'Bucket ID'
+        required: true
+        default: '2018813f-5e4e-448b-b4cd-270880905e4b'
+      taskId:
+        description: 'Task ID'
+        required: true
+        default: '019d7cb1-cffd-75f4-9933-6bfc8dd3f07b'
+      filename:
+        description: 'Filename'
+        required: true
+        default: 'model.glb'
+
+jobs:
+  supabase-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Supabase Storage Test
+        run: |
+          echo "=== Testing Supabase from GitHub Actions (US) ==="
+          echo "Bucket: ${{ inputs.bucketId }}"
+          echo "Task: ${{ inputs.taskId }}"
+          echo "File: ${{ inputs.filename }}"
+
+          # Test Supabase DNS resolution
+          echo "=== DNS Resolution ==="
+          nslookup ynfrecsxfgqnvgfpxcc.supabase.co || echo "nslookup failed"
+          host ynfrecsxfgqnvgfpxcc.supabase.co || echo "host failed"
+
+          # Test Supabase API
+          echo "=== Supabase API ==="
+          SUPABASE_KEY="${{ secrets.SUPABASE_KEY }}"
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "SUPABASE_KEY not set, using hardcoded"
+            SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGdzWmeG9meGciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcxNTU4NDA2NSwiZXhwIjoyMDMxMTYwMDY1fQ.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          fi
+
+          # Try Supabase storage sign endpoint
+          echo "=== Storage Sign ==="
+          STORAGE_PATH="${{ inputs.bucketId }}/tasks/${{ inputs.taskId }}/output/${{ inputs.filename }}"
+          SIGN_URL="https://ynfrecsxfgqnvgfpxcc.supabase.co/storage/v1/object/sign/${STORAGE_PATH}"
+          curl -s -o sign_response.json -w "%{http_code}" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -d '{"expiresIn":3600}' \
+            "$SIGN_URL"
+          echo ""
+          echo "Sign response: $(cat sign_response.json)"
+
+          # If we get a signed URL, try to download
+          SIGNED_URL=$(cat sign_response.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('signedURL',''))" 2>/dev/null || echo "")
+          if [ -n "$SIGNED_URL" ]; then
+            echo "=== Download with signed URL ==="
+            FULL_URL="https://ynfrecsxfgqnvgfpxcc.supabase.co/storage/v1${SIGNED_URL}"
+            curl -L -o "${{ inputs.filename }}" \
+              -H "apikey: $SUPABASE_KEY" \
+              --max-time 30 \
+              "$FULL_URL"
+            ls -la "${{ inputs.filename }}"
+            file "${{ inputs.filename }}"
+            xxd -l 16 "${{ inputs.filename }}"
+          fi
+
+      - name: Try Cloudflare Worker approach
+        run: |
+          echo "=== CF Worker Proxy Test ==="
+          # Check if we can reach CF worker
+          curl -s -o /dev/null -w "%{http_code}" "https://meshy-proxy.${{ vars.CF_WORKER_DOMAIN || 'workers.dev' }}/health" 2>/dev/null || echo "CF worker not configured"
