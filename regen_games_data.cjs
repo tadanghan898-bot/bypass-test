@@ -42,6 +42,9 @@ const SKIP_SLUGS = new Set([
     'PacktPublishing-Real-Time-3D-Graphics-with-WebGL-2',
     'akanasoftware',
     'my-lambda-projects-Lambda',
+    // Emulators, vim plugins, WASM demos
+    'ArchUsr64-6502_emulator',
+    '1995eaton-chromium-vim',
     // Non-game repos (bookwyrms, histograms, mustache, typeplate, etc.)
     'bookwyrm-social-bookwyrm',
     'HdrHistogram-HdrHistogram',
