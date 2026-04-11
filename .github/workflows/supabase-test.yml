@@ -1,0 +1,66 @@
+name: Supabase Storage Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Supabase Storage API
+        run: |
+          echo "=== Testing Supabase Storage API ==="
+
+          # Test if Supabase is reachable
+          curl -s -o /dev/null -w "%{http_code}" "https://ynfrecsxfgqnvgfpxccc.supabase.co/auth/v1/health" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            && echo " - auth health" || echo " - auth FAILED"
+
+          # Get fresh token using refresh token
+          echo ""
+          echo "=== Getting fresh token ==="
+          REFRESH_TOKEN="${{ vars.MESHY_REFRESH_TOKEN }}"
+          echo "Refresh token exists: $([ -n \"$REFRESH_TOKEN\" ] && echo yes || echo no)"
+
+          TOKEN=$(curl -s -X POST \
+            "https://auth.meshy.ai/auth/v1/token?grant_type=refresh_token" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "content-type: application/json" \
+            -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))")
+
+          echo "Token: ${TOKEN:0:30}..."
+
+          # Test Supabase Storage for model
+          echo ""
+          echo "=== Supabase Storage - model file ==="
+          curl -s -o /tmp/model.glb -w "Status: %{http_code} Size: %{size_download}" \
+            "https://ynfrecsxfgqnvgfpxccc.supabase.co/storage/v1/object/models/30bff823-18e0-477f-a7cf-aac591523efd/tasks/019d7b12-6859-7918-9086-0f7407fac599/output/model.glb" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "Authorization: Bearer $TOKEN"
+          head -c 4 /tmp/model.glb | xxd
+
+          # Test Supabase Storage - get signed URL
+          echo ""
+          echo "=== Supabase Storage - sign URL request ==="
+          curl -s -X POST \
+            "https://ynfrecsxfgqnvgfpxccc.supabase.co/storage/v1/object/sign/models/30bff823-18e0-477f-a7cf-aac591523efd/tasks/019d7b12-6859-7918-9086-0f7407fac599/output/model.glb" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"expiresIn": 3600}'
+
+          # Test Supabase REST API for task data
+          echo ""
+          echo "=== Supabase REST API - tasks table ==="
+          curl -s \
+            "https://ynfrecsxfgqnvgfpxccc.supabase.co/rest/v1/tasks?id=eq.019d7b12-6859-7918-9086-0f7407fac599&select=*" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "Authorization: Bearer $TOKEN"
+
+          # Try CloudFront direct (should still fail)
+          echo ""
+          echo "=== CloudFront Direct ==="
+          curl -s -o /tmp/cf_test.glb -w "Status: %{http_code}" \
+            "https://assets.meshy.ai/30bff823-18e0-477f-a7cf-aac591523efd/tasks/019d7b12-6859-7918-9086-0f7407fac599/output/model.glb?Expires=1776038400&Signature=bBZusDbAajBTxjsJG~mwqsJbJCfeF2EErPpQb5gBaFiqQFT2coOvK-kAy1FHpVp4t0b2Uuv&Key-Pair-Id=K1VGYTHIYLM9UM" \
+            -H "Origin: https://www.meshy.ai"
+          head -c 4 /tmp/cf_test.glb | xxd
