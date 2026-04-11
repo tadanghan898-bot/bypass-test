@@ -1,0 +1,32 @@
+name: Supabase Deep Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase Connectivity Test
+        run: |
+          echo "=== Supabase DNS Resolution ==="
+          nslookup ynfrecsxfgqnvgfpxccc.supabase.co || true
+          echo ""
+          echo "=== Curl Supabase ==="
+          curl -v --max-time 10 "https://ynfrecsxfgqnvgfpxccc.supabase.co/auth/v1/health" 2>&1 || true
+          echo ""
+          echo "=== Storage API ==="
+          curl -s --max-time 10 "https://ynfrecsxfgqnvgfpxccc.supabase.co/storage/v1/bucket" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -w "\nStatus: %{http_code}\n" || true
+          echo ""
+          echo "=== Storage objects ==="
+          curl -s --max-time 10 "https://ynfrecsxfgqnvgfpxccc.supabase.co/rest/v1/storage.objects?select=*" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -w "\nStatus: %{http_code}\n" || true
+          echo ""
+          echo "=== Model file via storage ==="
+          curl -s --max-time 10 -o /tmp/model.glb -w "Status: %{http_code} Size: %{size_download}\n" \
+            "https://ynfrecsxfgqnvgfpxccc.supabase.co/storage/v1/object/models/30bff823-18e0-477f-a7cf-aac591523efd/tasks/019d7b12-6859-7918-9086-0f7407fac599/output/model.glb" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" || true
+          xxd /tmp/model.glb | head -c 100 || true
