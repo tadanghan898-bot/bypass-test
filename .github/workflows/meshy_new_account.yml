@@ -1,116 +1,197 @@
-name: Create New Account
+name: Create New Account v2
 on: workflow_dispatch
 jobs:
   create:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Setup
+      - name: Create account
         run: |
-          echo "=== Creating new Meshy account ==="
-          MSY_KEY="${{ secrets.MESHY_MSY_KEY }}"
-          echo "Key prefix: ${MSY_KEY:0:20}"
-          
-          # Try to get a mail.tm email
-          echo ""
+          set -e
+          echo "=== Meshy Account Creator v2 ==="
+
+          # [1] Get mail.tm email
           echo "[1] Getting mail.tm email..."
           DOMAIN_RESP=$(curl -s "https://api.mail.tm/domains?limit=5")
-          echo "Domains: $DOMAIN_RESP"
-          DOMAIN=$(echo $DOMAIN_RESP | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['hydra:member'][0]['domain'] if d.get('hydra:member') else '')")
+          echo "Domains response: $DOMAIN_RESP"
+          DOMAIN=$(echo "$DOMAIN_RESP" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    members = data.get('hydra:member', [])
+    if isinstance(members, list) and len(members) > 0:
+        print(members[0].get('domain', ''))
+    else:
+        print('')
+except Exception as e:
+    print('ERROR:' + str(e))
+")
           echo "Domain: $DOMAIN"
-          
-          if [ -z "$DOMAIN" ]; then
-            echo "No domains available"
+
+          if [ -z "$DOMAIN" ] || [[ "$DOMAIN" == ERROR* ]]; then
+            echo "Failed to get domain"
             exit 1
           fi
-          
+
           EMAIL="mx$(date +%s)$RANDOM@$DOMAIN"
-          PASS="Meshy$(openssl rand -base64 12)"
+          PASS="Meshy12345$(openssl rand -base64 8 | tr -dc 'a-zA-Z0-9' | head -c 8)"
           echo "Email: $EMAIL"
-          
-          # Create mail.tm account
+          echo "Password: $PASS"
+
+          # [2] Create mail.tm account
           echo ""
           echo "[2] Creating mail.tm account..."
-          CREATE_RESP=$(curl -s -X POST "https://api.mail.tm/accounts" \
+          CREATE=$(curl -s -X POST "https://api.mail.tm/accounts" \
             -H "Content-Type: application/json" \
             -d "{\"address\":\"$EMAIL\",\"password\":\"$PASS\"}")
-          echo "Create: $CREATE_RESP"
-          
-          # Get token
+          echo "Create: $CREATE"
+
+          # [3] Get token
           echo ""
           echo "[3] Getting mail.tm token..."
           TOKEN_RESP=$(curl -s -X POST "https://api.mail.tm/token" \
             -H "Content-Type: application/json" \
             -d "{\"address\":\"$EMAIL\",\"password\":\"$PASS\"}")
-          echo "Token: $TOKEN_RESP"
-          TOKEN=$(echo $TOKEN_RESP | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))")
-          echo "Token length: ${#TOKEN}"
-          
-          if [ -z "$TOKEN" ]; then
-            echo "Failed to get token"
+          echo "Token response: $TOKEN_RESP"
+          TOKEN=$(echo "$TOKEN_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('token', ''))
+")
+
+          if [ ${#TOKEN} -lt 100 ]; then
+            echo "Token too short, failed"
             exit 1
           fi
-          
-          # Sign up for Meshy
+          echo "Token length: ${#TOKEN}"
+
+          # [4] Sign up for Meshy
           echo ""
           echo "[4] Signing up for Meshy..."
-          SIGNUP_RESP=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/signup" \
+          SIGNUP=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/signup" \
             -H "apikey: ${{ secrets.MESHY_SUPABASE_KEY }}" \
             -H "content-type: application/json" \
             -H "x-client-info: supabase-js/2.39.0" \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
-          echo "Signup: $SIGNUP_RESP"
-          
-          # Wait and poll for verification code
+          echo "Signup: $SIGNUP"
+
+          # [5] Poll for verification code
           echo ""
-          echo "[5] Waiting for verification code..."
-          for i in {1..36}; do
+          echo "[5] Waiting for verification code (up to 6 minutes)..."
+          CODE=""
+          for i in $(seq 1 36); do
             sleep 10
-            MSGS=$(curl -s "https://api.mail.tm/messages" -H "Authorization: Bearer $TOKEN")
-            COUNT=$(echo $MSGS | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('hydra:member',[])))")
-            echo "[$((i*10))s] Messages: $COUNT"
-            
+            echo "[$((i*10))s] Checking messages..."
+
+            MSGS=$(curl -s "https://api.mail.tm/messages" \
+              -H "Authorization: Bearer $TOKEN")
+
+            COUNT=$(echo "$MSGS" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+members = data.get('hydra:member', [])
+if isinstance(members, list):
+    print(len(members))
+else:
+    print(0)
+")
+            echo "  Message count: $COUNT"
+
             if [ "$COUNT" -gt 0 ]; then
-              MSG_ID=$(echo $MSGS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['hydra:member'][0]['id'])")
-              MSG_DATA=$(curl -s "https://api.mail.tm/messages/$MSG_ID" -H "Authorization: Bearer $TOKEN")
-              TEXT=$(echo $MSG_DATA | python3 -c "import sys,json; d=json.load(sys.stdin); t=d.get('text','')+d.get('html',''); import re; m=re.search(r'\b(\d{6,8})\b',t); print(m.group(1) if m else '')")
-              echo "Code found: $TEXT"
-              
-              if [ -n "$TEXT" ]; then
-                echo ""
-                echo "[6] Verifying..."
-                VERIFY=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/verify" \
-                  -H "apikey: ${{ secrets.MESHY_SUPABASE_KEY }}" \
-                  -H "content-type: application/json" \
-                  -d "{\"type\":\"email\",\"email\":\"$EMAIL\",\"token\":\"$TEXT\"}")
-                echo "Verify: $VERIFY"
-                
-                ACCESS=$(echo $VERIFY | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))")
-                echo "Access token: ${ACCESS:0:30}..."
-                
-                if [ -n "$ACCESS" ]; then
+              MSG_ID=$(echo "$MSGS" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+members = data.get('hydra:member', [])
+if isinstance(members, list) and len(members) > 0:
+    item = members[0]
+    item_id = item.get('id', '')
+    print(str(item_id))
+")
+              echo "  MSG_ID: $MSG_ID"
+
+              if [ -n "$MSG_ID" ] && [ "$MSG_ID" != "None" ]; then
+                MSG_FULL=$(curl -s "https://api.mail.tm/messages/$MSG_ID" \
+                  -H "Authorization: Bearer $TOKEN")
+
+                CODE=$(echo "$MSG_FULL" | python3 -c "
+import sys, json, re
+data = json.load(sys.stdin)
+text = data.get('text', '')
+html = data.get('html', '')
+combined = text + html
+matches = re.findall(r'\b\d{6,8}\b', combined)
+if matches:
+    print(matches[0])
+else:
+    subject = data.get('subject', '')
+    sub_matches = re.findall(r'\b\d{6,8}\b', subject)
+    if sub_matches:
+        print(sub_matches[0])
+    else:
+        print('')
+")
+                echo "  Code: $CODE"
+
+                if [ -n "$CODE" ] && [ "$CODE" != "None" ]; then
                   echo ""
-                  echo "[7] Creating API key..."
-                  APIKEY_RESP=$(curl -s -X POST "https://api.meshy.ai/web/v1/apikeys" \
-                    -H "Authorization: Bearer $ACCESS" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"name\":\"gha-$(date +%s)\"}")
-                  echo "APIKey: $APIKEY_RESP"
-                  
-                  APIKEY=$(echo $APIKEY_RESP | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',''))")
-                  echo "KEY=$APIKEY" >> $GITHUB_ENV
-                  echo "EMAIL=$EMAIL" >> $GITHUB_ENV
-                  echo "=== SUCCESS ==="
-                  echo "NEW_API_KEY=$APIKEY" >> $GITHUB_OUTPUT
-                  echo "NEW_EMAIL=$EMAIL" >> $GITHUB_OUTPUT
-                  echo "email=$EMAIL" >> $GITHUB_ENV
-                  echo "new_api_key=$APIKEY" >> $GITHUB_ENV
+                  echo "[6] Verifying code: $CODE"
+                  VERIFY=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/verify" \
+                    -H "apikey: ${{ secrets.MESHY_SUPABASE_KEY }}" \
+                    -H "content-type: application/json" \
+                    -d "{\"type\":\"email\",\"email\":\"$EMAIL\",\"token\":\"$CODE\"}")
+                  echo "Verify: $VERIFY"
+
+                  ACCESS=$(echo "$VERIFY" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('access_token', ''))
+")
+                  echo "Access token: ${ACCESS:0:30}..."
+
+                  if [ -n "$ACCESS" ] && [ ${#ACCESS} -gt 50 ]; then
+                    echo ""
+                    echo "[7] Creating API key..."
+                    APIKEY_RESP=$(curl -s -X POST "https://api.meshy.ai/web/v1/apikeys" \
+                      -H "Authorization: Bearer $ACCESS" \
+                      -H "Content-Type: application/json" \
+                      -d "{\"name\":\"gha-$(date +%s)\"}")
+                    echo "APIKey response: $APIKEY_RESP"
+
+                    APIKEY=$(echo "$APIKEY_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('result', ''))
+")
+                    echo "API Key: $APIKEY"
+
+                    if [ -n "$APIKEY" ] && [ ${#APIKEY} -gt 20 ]; then
+                      echo ""
+                      echo "=== SUCCESS ==="
+                      echo "email=$EMAIL" >> $GITHUB_ENV
+                      echo "new_api_key=$APIKEY" >> $GITHUB_ENV
+                      echo "new_api_key=$APIKEY" >> $GITHUB_OUTPUT
+                      echo "email=$EMAIL" >> $GITHUB_OUTPUT
+
+                      echo ""
+                      echo "[8] Testing API key..."
+                      BALANCE=$(curl -s "https://api.meshy.ai/openapi/v1/balance" \
+                        -H "Authorization: Bearer $APIKEY" \
+                        -H "X-Api-Version: v2026.04.03.post7")
+                      echo "Balance: $BALANCE"
+                    else
+                      echo "Failed to get API key"
+                    fi
+                  else
+                    echo "Failed to verify"
+                  fi
+                  break
                 fi
-                break
               fi
             fi
           done
-          
-          if [ -z "$KEY" ]; then
-            echo "Failed to get verification code"
+
+          if [ -z "$CODE" ]; then
+            echo ""
+            echo "FAILED: No verification code received"
             exit 1
           fi
