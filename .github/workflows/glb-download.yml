@@ -1,0 +1,83 @@
+name: GLB Download
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_url:
+        description: 'Full model.glb URL'
+        required: true
+        type: string
+      task_id:
+        description: 'Task ID'
+        required: true
+        type: string
+      access_token:
+        description: 'Access token'
+        required: true
+        type: string
+      output_name:
+        description: 'Output filename'
+        required: false
+        type: string
+        default: 'model.glb'
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download GLB
+        run: |
+          echo "Model URL: ${{ inputs.model_url }}"
+          echo "Task ID: ${{ inputs.task_id }}"
+
+          # Try direct download with the CloudFront signed URL
+          echo "=== Attempt 1: Direct CF download ==="
+          curl -L -o "${{ inputs.output_name }}" \
+            -w "\nHTTP_STATUS:%{http_code}\nSIZE:%{size_download}\n" \
+            -H "Origin: https://www.meshy.ai" \
+            -H "Referer: https://www.meshy.ai/" \
+            "${{ inputs.model_url }}" 2>&1 || true
+
+          SIZE=$(wc -c < "${{ inputs.output_name }}" || echo "0")
+          echo "Downloaded size: $SIZE bytes"
+
+          # Check magic bytes
+          head -c 4 "${{ inputs.output_name }}" | xxd
+
+          # If it's not GLB, try with cookies
+          if [[ "$SIZE" -lt 1000 ]]; then
+            echo "=== Attempt 2: Download with Cookie jar ==="
+            curl -L -o "${{ inputs.output_name }}" \
+              -w "\nHTTP_STATUS:%{http_code}\nSIZE:%{size_download}\n" \
+              -H "Cookie: access_token=${{ inputs.access_token }}" \
+              "${{ inputs.model_url }}" 2>&1 || true
+            head -c 4 "${{ inputs.output_name }}" | xxd
+          fi
+
+          # If still not GLB, try with browser-like headers
+          if [[ "$SIZE" -lt 1000 ]]; then
+            echo "=== Attempt 3: Browser headers ==="
+            curl -L -o "${{ inputs.output_name }}" \
+              -w "\nHTTP_STATUS:%{http_code}\nSIZE:%{size_download}\n" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+              -H "Accept: */*" \
+              -H "Accept-Language: en-US,en;q=0.9" \
+              -H "Origin: https://www.meshy.ai" \
+              -H "Referer: https://www.meshy.ai/" \
+              "${{ inputs.model_url }}" 2>&1 || true
+            head -c 4 "${{ inputs.output_name }}" | xxd
+          fi
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.output_name }}
+          path: ${{ inputs.output_name }}
+          retention-days: 1
+
+      - name: Report result
+        run: |
+          SIZE=$(wc -c < "${{ inputs.output_name }}" 2>/dev/null || echo "0")
+          echo "Final size: $SIZE bytes"
+          head -c 16 "${{ inputs.output_name }}" 2>/dev/null | xxd || echo "File not readable"
