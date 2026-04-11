@@ -1,0 +1,16 @@
+name: Key Test
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "SUPABASE_KEY=${MESHY_SUPABASE_KEY:0:30}..."
+          echo "MSY_KEY=${MESHY_MSY_KEY:0:30}..."
+          # Try signup with the key
+          RESP=$(curl -s "https://auth.meshy.ai/auth/v1/signup" \
+            -H "apikey: $MESHY_SUPABASE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"testkeycheck@test.com","password":"TestPass123!"}')
+          echo "Signup: $RESP"
+          echo "KEY_LEN=${#MESHY_SUPABASE_KEY}"
