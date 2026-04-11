@@ -1,0 +1,73 @@
+name: Meshy API Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API endpoints
+        run: |
+          echo "=== Checking API endpoints ==="
+
+          # Check if the API is up
+          echo "--- Root API ---"
+          curl -s "https://api.meshy.ai/" -o /dev/null -w "%{http_code}" && echo " /"
+
+          echo ""
+          echo "--- OpenAPI v1 ---"
+          curl -s "https://api.meshy.ai/openapi/v1" -o /dev/null -w "%{http_code}" && echo " /openapi/v1"
+
+          echo ""
+          echo "--- OpenAPI v2 ---"
+          curl -s "https://api.meshy.ai/openapi/v2" -o /dev/null -w "%{http_code}" && echo " /openapi/v2"
+
+          echo ""
+          echo "--- GET text-to-3d ---"
+          curl -s "https://api.meshy.ai/openapi/v1/text-to-3d" -o /dev/null -w "%{http_code}" && echo " GET /openapi/v1/text-to-3d"
+
+          echo ""
+          echo "--- OpenAPI spec ---"
+          curl -s "https://api.meshy.ai/openapi.json" -w "\nStatus: %{http_code}" | head -5
+
+          echo ""
+          echo "--- Swagger ---"
+          curl -s "https://api.meshy.ai/swagger.json" -w "\nStatus: %{http_code}" | head -5
+
+          echo ""
+          echo "=== Checking assets.meshy.ai ==="
+          curl -s -o /dev/null -w "assets.meshy.ai: %{http_code}\n" "https://assets.meshy.ai/"
+          curl -s -o /dev/null -w "assets.meshy.ai/model: %{http_code}\n" "https://assets.meshy.ai/model"
+          curl -s -o /dev/null -w "cdn.meshy.ai/model/: %{http_code}\n" "https://cdn.meshy.ai/model/"
+          curl -s -o /dev/null -w "cdn.meshy.ai/: %{http_code}\n" "https://cdn.meshy.ai/"
+
+          echo ""
+          echo "=== Testing text-to-3d generation ==="
+          REFRESH_TOKEN="\${{ vars.MESHY_REFRESH_TOKEN }}"
+          echo "Getting token..."
+          TOKEN=\$(curl -s -X POST \
+            "https://auth.meshy.ai/auth/v1/token?grant_type=refresh_token" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "content-type: application/json" \
+            -d "{\"refresh_token\":\"\$REFRESH_TOKEN\"}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))")
+
+          echo "Token: \${TOKEN:0:30}..."
+
+          echo ""
+          echo "--- Trying POST text-to-3d ---"
+          curl -s -X POST "https://api.meshy.ai/openapi/v1/text-to-3d" \
+            -H "Authorization: Bearer \$TOKEN" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d '{"prompt":"a robot","aiModel":"meshy-5"}' \
+            -w "\nStatus: %{http_code}\n"
+
+          echo ""
+          echo "--- Trying POST v2 text-to-3d ---"
+          curl -s -X POST "https://api.meshy.ai/openapi/v2/text-to-3d" \
+            -H "Authorization: Bearer \$TOKEN" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d '{"prompt":"a robot","aiModel":"meshy-5"}' \
+            -w "\nStatus: %{http_code}\n"
