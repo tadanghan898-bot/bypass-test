@@ -16,6 +16,97 @@ const SKIP_SLUGS = new Set([
     'optimized-for-simplicity-and-ea',
     'games-platforms',
     'caliwyr-Software',
+    'noah--d2bs',
+    // Non-game repos that pass hasGameCode() threshold
+    'salma-emara-ece244-book',
+    'albertzak-open',
+    'cipher387-osint-stuff-tool-collection',
+    'cipher387-osint_stuff_tool_collection',
+    'dhairyagothi-100-days-100-web-project',
+    'dhairyagothi-100_days_100_web_project',
+    'areso-1255-burgomaster',
+    'TheVisualHub-CodeForge',
+    'GuilhermeRossato-3D-Redstone-Simulator',
+    '9001-copyparty',
+    'mark-hahn-coffeekup-intro',
+    'aframevr-aframe',
+    'adobe-accessibility-Accessible-Mega-Menu',
+    // More non-game repos: editors, demos, tutorials, benchmarks
+    'ajaxorg-ace',
+    'MEDELBOU3-3d_editor',
+    'hiukim-mind-ar-js',
+    'collidingscopes-threejs-handtracking-101',
+    'collidingscopes-liquid-shape-distortions',
+    'collidingscopes-particular-drift',
+    'Nugget8-Three.js-Ocean-Scene',
+    'PacktPublishing-Real-Time-3D-Graphics-with-WebGL-2',
+    'akanasoftware',
+    'my-lambda-projects-Lambda',
+    // Non-game repos (bookwyrms, histograms, mustache, typeplate, etc.)
+    'bookwyrm-social-bookwyrm',
+    'HdrHistogram-HdrHistogram',
+    'laineus-phavuer',
+    'merlinepedra-osint-stuff-tool-collection',
+    'mustache-mustache',
+    'typeplate-typeplate.github.io',
+    'feijiqun-feijiqun.github.io',
+    'cloudkidstudio-pixiflash',
+    'icecreamyou-html5-canvas-game-boilerplate',
+    // Repo-name-as-title slugs that are non-games
+    'Bercon-VIRGO-1302',
+    'jzitelli-poolvr',
+    'drawcall-three.proton',
+    'SalvatorePreviti-js13k-2020',
+    'SalvatorePreviti-js13k-2022',
+    'ImBIOS-lab-snake-reverse',
+    'Dicklesworthstone-asupersync',
+    'azgaar-fantasy-map-generator',
+    'ssatguru-BabylonJS-CharacterController',
+    'liuliangsir-chromium-style-qrcode-generator-with-wasm',
+    'ajlopez-JavaScriptAI',
+    'chaosprint-glicol',
+    'redblobgames-mapgen2',
+    'zeux-meshoptimizer',
+    'rogeryi-wx_mini_game_demo',
+    'cool-japan-spintronics',
+    'font_tool',
+    'phoboslab-high_impact',
+    'schibo-1964js',
+    'achliopa-udacity_interactive3dGraphics',
+    'aftertheflood-sparks',
+    'ChrisKnott-Algojammer',
+    'zufuliu-notepad4',
+    'anilsathyan7-Portrait-Segmentation',
+    'mapbox-mapbox-gl-js',
+    'sessamekesh-wasm-3d-animation-demo',
+    'curran-screencasts',
+    'Annoraaq-grid-engine',
+    'ramanuj-droid-Anti-Boredom',
+    'jasmineroberts-xr-stack',
+    'tiansijie-Tile_Based_WebGL_DeferredShader',
+    'kestrelm-Creature_WebGL',
+    'leerichard42-WebGL-Unified-Particle-System',
+    'turbulenz-webgl_benchmark',
+    'donikv-webGl-dithering',
+    'antimatter15-splat',
+    'driule-webgl-path-tracer',
+    'wulinjiansheng-WebGL_PathTracer',
+    'WebGLInsights-WebGLInsights-1',
+    'codyebberson-wglt',
+    'tengge1-ShadowEditor',
+    'wwwtyro-vixel-editor',
+    'OscarGodson-EpicEditor',
+    'apbodnar-FSPT',
+    'hunterloftis-pathtracer',
+    'ruvnet-RuVector',
+    'muzi-8-Visual-analytics-and-Interpretability-in-Deep-Learning',
+    'xviniette-FlappyLearning',
+    'jojoee-phaser-examples',
+    'noowxela-phaser-examples',
+    'akkana-scripts',
+    'dannz510-crossy-road',
+    'donandyv-Game',
+    'ippa-jaws',
 ]);
 
 function extractTitle(content, slug) {
@@ -27,8 +118,21 @@ function extractTitle(content, slug) {
     ];
     const m = content.match(/<title[^>]*>([^<]+)/i);
     if (m) {
-        let t = m[1].trim().replace(/\|.*$/, '').trim();
-        if (t.length < 2) return slug;
+        let t = m[1].trim().replace(/\|.*$/, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+        // Decode common HTML entities
+        t = t.replace(/&#x27;/g, "'").replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        if (t.length < 3) return slug;
+        if (t.length < 3) return slug;
+        // Reject emoji-only, number-only, date-only, code-pattern titles
+        if (/^[\d\s\-\.\/#:]+$/.test(t)) return slug;
+        if (/^[🌟⭐🕹️💎🎮🚀⭐✨🎯💰🔥🎮🏆🎲]+$/.test(t)) return slug;
+        if (/^\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i.test(t)) return slug;
+        if (/^Update\s*#?\d+/i.test(t)) return slug;
+        // Reject question/statement titles that are clearly not game names
+        if (/^(How|What|Why|Can|Is|Do|Does|When|Where|Which)/i.test(t) && t.includes('?')) return slug;
+        // Reject titles starting with library/framework names
+        if (/^(Mapbox|Three\.?js|WebGL|Babylon|PlayCanvas|A-Frame|Phaser|Pixi|Cannon\.?js|Ammo\.?js|Verlet|Box2D|Unity|Unreal|Ogre|Three\.?js)/i.test(t)) return slug;
+        // Strip common README/boilerplate suffixes
         // Strip common README/boilerplate suffixes
         t = t.replace(/,\s*using\s+(standard\s+)?HTML.*$/i, '');
         t = t.replace(/\s*[-—]\s*(Handcrafted\s+)?starter.*$/i, '');
@@ -44,15 +148,22 @@ function extractTitle(content, slug) {
     }
     const m2 = content.match(/<h1[^>]*>([^<]+)/i);
     if (m2) {
-        let t = m2[1].trim().slice(0, 80);
-        if (t.length < 2) return slug;
+        let t = m2[1].trim().replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').slice(0, 80);
+        t = t.replace(/&#x27;/g, "'").replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        if (t.length < 3) return slug;
         const lower = t.toLowerCase();
         for (const pat of BAD_TITLE_PATTERNS) {
             if (lower.includes(pat.toLowerCase())) return slug;
         }
         return t;
     }
-    return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const fallback = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    if (fallback.length < 3) return slug;
+    // Reject emoji-only fallbacks
+    if (/^[\s🌟⭐🕹️💎🎮🚀✨🎯💰🔥🏆🎲]+$/.test(fallback)) return slug;
+    // Reject slug-based titles that start with library names
+    if (/^(Three|Webgl|Babylon|Phaser|Pixi|Cannon|Ammo|Mapbox|Aframe)/i.test(fallback)) return slug;
+    return fallback;
 }
 
 function hasGameCode(content) {
@@ -222,6 +333,7 @@ lines.push('];');
 lines.push('\nif (typeof module !== "undefined" && module.exports) {');
 lines.push('  module.exports = games;');
 lines.push('}');
+lines.push('\nexport { games };');
 
 const content = lines.join('\n');
 fs.writeFileSync(OUT_FILE, content);
