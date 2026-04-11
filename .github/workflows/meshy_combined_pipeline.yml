@@ -1,0 +1,363 @@
+name: Meshy Combined Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Task ID (optional - if provided, skip generation)'
+        required: false
+        type: string
+      prompt:
+        description: 'Prompt (used if task_id not provided)'
+        required: false
+        type: string
+        default: 'a medieval castle'
+      mode:
+        description: 'Mode: generate+download or openapi-test'
+        required: false
+        type: string
+        default: 'generate+download'
+
+env:
+  MESHY_MSY_KEY: ${{ secrets.MESHY_MSY_KEY }}
+  MESHY_SUPABASE_KEY: ${{ secrets.MESHY_SUPABASE_KEY }}
+
+jobs:
+  # ============================================================
+  # JOB 1: Generate via Web API v2 (works from any location)
+  # ============================================================
+  generate:
+    runs-on: ubuntu-latest
+    outputs:
+      task_id: ${{ steps.gen.outputs.task_id }}
+    steps:
+      - name: Generate model via Web API v2
+        id: gen
+        run: |
+          echo "=== WEB API v2 GENERATION ==="
+
+          if [ -n "${{ inputs.task_id }}" ]; then
+            echo "Using provided task_id: ${{ inputs.task_id }}"
+            echo "task_id=${{ inputs.task_id }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          PROMPT="${{ inputs.prompt }}"
+          TASK_JSON=$(curl -s -X POST \
+            "https://api.meshy.ai/web/v2/tasks" \
+            -H "Authorization: Bearer $MESHY_MSY_KEY" \
+            -H "apikey: $MESHY_SUPABASE_KEY" \
+            -H "origin: https://www.meshy.ai" \
+            -H "referer: https://www.meshy.ai/" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"phase\": \"draft\",
+              \"args\": {
+                \"draft\": {
+                  \"prompt\": \"$PROMPT\",
+                  \"seed\": $(date +%s),
+                  \"license\": \"cc-by-4.0\",
+                  \"aiModel\": \"meshy-5\",
+                  \"symmetryMode\": 0
+                }
+              },
+              \"isNSFW\": false
+            }")
+
+          echo "Create response: $TASK_JSON"
+          TASK_ID=$(echo "$TASK_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',''))")
+          echo "Task ID: $TASK_ID"
+          echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+
+          if [ -z "$TASK_ID" ] || [ "$TASK_ID" = "null" ]; then
+            echo "ERROR: No task ID returned"
+            exit 1
+          fi
+
+          echo "=== POLLING FOR COMPLETION ==="
+          for i in {1..20}; do
+            sleep 10
+            STATUS_JSON=$(curl -s \
+              "https://api.meshy.ai/web/v1/tasks/$TASK_ID/status" \
+              -H "Authorization: Bearer $MESHY_MSY_KEY" \
+              -H "apikey: $MESHY_SUPABASE_KEY" \
+              -H "origin: https://www.meshy.ai" \
+              -H "referer: https://www.meshy.ai/")
+            STATUS=$(echo "$STATUS_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); r=d.get('result',d); print(r.get('status','UNKNOWN'))" 2>/dev/null)
+            PROGRESS=$(echo "$STATUS_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); r=d.get('result',d); print(r.get('progress',0))" 2>/dev/null)
+            echo "[$((i*10))s] Status: $STATUS (${PROGRESS}%)"
+
+            if [ "$STATUS" = "SUCCEEDED" ]; then
+              echo "SUCCESS! Generation complete."
+              break
+            elif [ "$STATUS" = "FAILED" ]; then
+              echo "FAILED: $STATUS_JSON"
+              exit 1
+            fi
+          done
+
+  # ============================================================
+  # JOB 2: Download GLB from US infrastructure
+  # ============================================================
+  download-glb:
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check environment
+        run: |
+          echo "=== ENVIRONMENT CHECK ==="
+          echo "MSY_KEY present: $([ -n "$MESHY_MSY_KEY" ] && echo YES || echo NO)"
+          echo "SUPABASE_KEY present: $([ -n "$MESHY_SUPABASE_KEY" ] && echo YES || echo NO)"
+          echo "Task ID: ${{ needs.generate.outputs.task_id }}"
+
+      - name: Get task details and find all URLs
+        run: |
+          echo "=== FETCHING TASK DETAILS ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+          TASK_JSON=$(curl -s \
+            "https://api.meshy.ai/web/v2/tasks/$TASK_ID" \
+            -H "Authorization: Bearer $MESHY_MSY_KEY" \
+            -H "apikey: $MESHY_SUPABASE_KEY" \
+            -H "origin: https://www.meshy.ai" \
+            -H "referer: https://www.meshy.ai/")
+
+          echo "$TASK_JSON" > task_details.json
+          echo "Task JSON saved (${#TASK_JSON} bytes)"
+
+          # Extract all URLs
+          echo "$TASK_JSON" | python3 -c "
+import sys, json, re
+data = json.loads(sys.stdin.read())
+result = data.get('result', data)
+task_str = json.dumps(result)
+urls = re.findall(r'https?://[^\s\"']+', task_str)
+print(f'Found {len(urls)} URLs:')
+for url in urls:
+    print(' ', url[:150])
+"
+
+      - name: Try downloading model.glb from US
+        run: |
+          echo "=== US GLB DOWNLOAD ATTEMPT ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+          TASK_JSON=$(cat task_details.json)
+
+          # Method 1: Look for model.glb in task response
+          MODEL_URL=$(echo "$TASK_JSON" | python3 -c "
+import sys, json, re
+data = json.loads(sys.stdin.read())
+result = data.get('result', data)
+task_str = json.dumps(result)
+matches = re.findall(r'https://assets\.meshy\.ai[^\s\"\']+model\.glb[^\s\"\']*', task_str)
+print(matches[0] if matches else 'NONE')
+")
+
+          if [ "$MODEL_URL" != "NONE" ]; then
+            echo "Found model URL: $MODEL_URL"
+            echo "Attempting download..."
+            curl -L -o "model.glb" \
+              -w "\nHTTP:%{http_code} SIZE:%{size_download}\n" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              -H "Accept: */*" \
+              -H "Origin: https://www.meshy.ai" \
+              -H "Referer: https://www.meshy.ai/" \
+              "$MODEL_URL" 2>&1
+
+            SIZE=$(wc -c < model.glb 2>/dev/null || echo "0")
+            MAGIC=$(head -c 4 model.glb 2>/dev/null | xxd -p || echo "")
+            echo "Downloaded: $SIZE bytes, magic=$MAGIC"
+          else
+            echo "No model.glb URL found in task response (Web API v2 limitation)"
+          fi
+
+      - name: Try alternate format URLs from US
+        run: |
+          echo "=== TRYING ALTERNATE FORMATS ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+          TASK_JSON=$(cat task_details.json)
+
+          for fmt in fbx usdz obj stl 3mf blend mtl; do
+            URL=$(echo "$TASK_JSON" | python3 -c "
+import sys, json, re
+fmt = '$fmt'
+try:
+    data = json.loads(sys.stdin.read())
+    result = data.get('result', data)
+    task_str = json.dumps(result)
+    matches = re.findall(rf'https://assets\.meshy\.ai[^\s\"\']+{fmt}[^\s\"\']*', task_str)
+    print(matches[0] if matches else '')
+except: pass
+")
+            if [ -n "$URL" ]; then
+              echo "- Trying $fmt..."
+              curl -s -o "model.$fmt" -w "HTTP:%{http_code} SIZE:%{size_download}\n" \
+                -H "User-Agent: Mozilla/5.0" -H "Origin: https://www.meshy.ai" \
+                "$URL" 2>&1
+            fi
+          done
+
+      - name: Try frame-level downloads
+        run: |
+          echo "=== FRAME LEVEL DOWNLOADS ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+          TASK_JSON=$(cat task_details.json)
+
+          for frame in 0 1 2 3; do
+            echo "--- Frame $frame ---"
+
+            # Try preview
+            PREV_URL=$(echo "$TASK_JSON" | python3 -c "
+import sys, json, re
+data = json.loads(sys.stdin.read())
+result = data.get('result', data)
+task_str = json.dumps(result)
+matches = re.findall(rf'https://assets\.meshy\.ai[^\s\"\']+/output/{frame}/preview_concat\.webp[^\s\"\']*', task_str)
+print(matches[0] if matches else '')
+")
+            if [ -n "$PREV_URL" ]; then
+              curl -s -o "preview_frame${frame}.webp" -w "preview HTTP:%{http_code} SIZE:%{size_download}\n" \
+                -H "User-Agent: Mozilla/5.0" -H "Origin: https://www.meshy.ai" \
+                "$PREV_URL" 2>&1
+            fi
+
+            # Try model.json
+            JSON_URL=$(echo "$TASK_JSON" | python3 -c "
+import sys, json, re
+data = json.loads(sys.stdin.read())
+result = data.get('result', data)
+task_str = json.dumps(result)
+matches = re.findall(rf'https://assets\.meshy\.ai[^\s\"\']+/output/{frame}/model\.json[^\s\"\']*', task_str)
+print(matches[0] if matches else '')
+")
+            if [ -n "$JSON_URL" ]; then
+              curl -s -o "model_frame${frame}.json" -w "model.json HTTP:%{http_code} SIZE:%{size_download}\n" \
+                -H "User-Agent: Mozilla/5.0" -H "Origin: https://www.meshy.ai" \
+                "$JSON_URL" 2>&1
+              echo "model.json content:" && cat "model_frame${frame}.json" | head -c 500
+              echo ""
+            fi
+
+            # Try model.glb on frame path
+            GLB_URL="https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/$TASK_ID/output/${frame}/model.glb"
+            echo "Trying GLB at frame path: $GLB_URL"
+            curl -s -o "frame${frame}.glb" -w "GLB HTTP:%{http_code} SIZE:%{size_download}\n" \
+              -H "User-Agent: Mozilla/5.0" -H "Origin: https://www.meshy.ai" \
+              "$GLB_URL" 2>&1
+          done
+
+      - name: Try Supabase storage direct
+        run: |
+          echo "=== SUPABASE STORAGE ACCESS ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+          BUCKET="2018813f-5e4e-448b-b4cd-270880905e4b"
+
+          echo "Method 1: Public bucket..."
+          curl -s -o supabase1.bin -w "HTTP:%{http_code} SIZE:%{size_download}\n" \
+            "https://ynfrecsxfgqnvgfpxcc.supabase.co/storage/v1/object/public/$BUCKET/tasks/$TASK_ID/output/model.glb" \
+            -H "apikey: $MESHY_SUPABASE_KEY"
+          head -c 16 supabase1.bin | xxd
+
+          echo "Method 2: With anon key..."
+          curl -s -o supabase2.bin -w "HTTP:%{http_code} SIZE:%{size_download}\n" \
+            "https://ynfrecsxfgqnvgfpxcc.supabase.co/storage/v1/object/public/$BUCKET/tasks/$TASK_ID/output/model.glb" \
+            -H "Authorization: Bearer $MESHY_SUPABASE_KEY"
+          head -c 16 supabase2.bin | xxd
+
+          echo "Method 3: GHA IP check..."
+          curl -s https://api.ipify.org
+
+      - name: Try CloudFront direct S3 origin
+        run: |
+          echo "=== CLOUDFRONT S3 ORIGIN PROBE ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+
+          # Try to determine S3 origin IP range
+          echo "Trying CF IP ranges..."
+          dig +short assets.meshy.ai 2>/dev/null || nslookup assets.meshy.ai 2>/dev/null | grep Address | tail -1
+
+          # Try CF with different params
+          CF_URLS=(
+            "https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/$TASK_ID/output/model.glb"
+            "https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/$TASK_ID/output/0/model.glb"
+          )
+          for url in "${CF_URLS[@]}"; do
+            echo "Trying: $(echo $url | cut -d'/' -f3- | cut -c1-60)..."
+            curl -s -o cf_test.bin -w "HTTP:%{http_code} SIZE:%{size_download}\n" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              -H "Accept: */*" \
+              -H "Origin: https://www.meshy.ai" \
+              -H "Referer: https://www.meshy.ai/" \
+              "$url" 2>&1
+            head -c 16 cf_test.bin | xxd
+          done
+
+      - name: Try OpenAPI endpoints from US
+        run: |
+          echo "=== OPENAPI ENDPOINTS FROM US ==="
+          TASK_ID="${{ needs.generate.outputs.task_id }}"
+
+          echo "1. Check balance..."
+          curl -s -w "\nHTTP:%{http_code}\n" \
+            "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer $MESHY_MSY_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7"
+
+          echo "2. Get task via OpenAPI..."
+          curl -s -w "\nHTTP:%{http_code}\n" \
+            "https://api.meshy.ai/openapi/v1/tasks/$TASK_ID" \
+            -H "Authorization: Bearer $MESHY_MSY_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7"
+
+          echo "3. Try image-to-3d generation (free plan test)..."
+          curl -s -w "\nHTTP:%{http_code}\n" \
+            -X POST "https://api.meshy.ai/openapi/v1/image-to-3d" \
+            -H "Authorization: Bearer $MESHY_MSY_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d '{"prompt": "a robot", "aiModel": "meshy-5", "taskType": "primary"}'
+
+      - name: Analyze preserved GLB files
+        run: |
+          echo "=== ANALYZING PRESERVED GLB FILES ==="
+          # These are known-valid GLB files from previous successful downloads
+          echo "Note: Checking what URLs these were from..."
+
+          echo "Checking valid GLB structure..."
+          ls -la /c/Users/han/hexstrike/meshy_output/d31b663b.glb 2>/dev/null || echo "File not accessible from GHA"
+          ls -la /c/Users/han/hexstrike/meshy_output/d896b3c8.glb 2>/dev/null || echo "File not accessible from GHA"
+
+      - name: Upload all artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-output-${{ needs.generate.outputs.task_id }}
+          path: |
+            task_details.json
+            model.glb
+            model.fbx
+            model.usdz
+            model.obj
+            model.stl
+            model.3mf
+            model.blend
+            model.mtl
+            preview_frame*.webp
+            model_frame*.json
+            frame*.glb
+            cf_test.bin
+            supabase*.bin
+          retention-days: 1
+        continue-on-error: true
+
+      - name: Final report
+        run: |
+          echo "=== FINAL REPORT ==="
+          echo "Task ID: ${{ needs.generate.outputs.task_id }}"
+          echo ""
+          echo "Files downloaded:"
+          for f in model.glb model.fbx model.usdz model.obj model.stl; do
+            if [ -f "$f" ]; then
+              SIZE=$(wc -c < "$f")
+              MAGIC=$(head -c 4 "$f" 2>/dev/null | xxd -p || echo "")
+              echo "  $f: $SIZE bytes, magic=$MAGIC"
+            fi
+          done
