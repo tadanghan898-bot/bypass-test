@@ -26,18 +26,28 @@ SKIP_DIRS = {
 SKIP_EXT = {'.git', '.lock', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico'}
 
 
-def gh(url):
+def gh(url, retries=3):
     req = urllib.request.Request(url)
     if TOKEN:
         req.add_header('Authorization', 'token ' + TOKEN)
     req.add_header('Accept', 'application/vnd.github.v3+json')
     req.add_header('User-Agent', 'Mozilla/5.0')
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            return json.loads(r.read())
-    except Exception as e:
-        print(f"  GH Error: {e}")
-        return {}
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return json.loads(r.read())
+        except Exception as e:
+            err_str = str(e).lower()
+            if '403' in err_str or 'rate limit' in err_str or '429' in err_str:
+                if attempt < retries - 1:
+                    wait = (attempt + 1) * 3
+                    print(f"  Rate limited, retrying in {wait}s...")
+                    time.sleep(wait)
+                    continue
+            if attempt == retries - 1:
+                print(f"  GH Error: {e}")
+            return {}
+    return {}
 
 
 def curl_raw(url):
