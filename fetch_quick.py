@@ -40,12 +40,12 @@ def gh(url, retries=3):
             err_str = str(e).lower()
             if '403' in err_str or 'rate limit' in err_str or '429' in err_str:
                 if attempt < retries - 1:
-                    wait = (attempt + 1) * 3
+                    wait = min((attempt + 1) * 60, 300)  # Exponential backoff: 60s, 120s, 180s... max 5min
                     print(f"  Rate limited, retrying in {wait}s...")
                     time.sleep(wait)
                     continue
             if attempt == retries - 1:
-                print(f"  GH Error: {e}")
+                pass  # Silent fail - don't spam logs
             return {}
     return {}
 
@@ -79,7 +79,7 @@ def get_file(repo, path):
 
 
 def get_dir(repo, path=''):
-    """Get directory listing."""
+    """Get directory listing. Returns [] on rate limit to allow graceful skip."""
     try:
         url = (f"https://api.github.com/repos/{repo}/contents/{path}"
                if path else f"https://api.github.com/repos/{repo}/contents/")
