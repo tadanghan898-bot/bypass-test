@@ -1,0 +1,156 @@
+name: Meshy GLB Complete Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Prompt'
+        required: false
+        default: 'a robot'
+
+jobs:
+  full-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Full GLB Download Test
+        run: |
+          set -e
+          echo "=== STEP 1: Check Balance ==="
+          curl -s "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7"
+
+          echo ""
+          echo "=== STEP 2: Create Task ==="
+          RESP=$(curl -s -X POST "https://api.meshy.ai/web/v2/tasks" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{"phase":"draft","args":{"draft":{"prompt":"${{ github.event.inputs.prompt }}","seed":42,"aiModel":"meshy-5","symmetryMode":0}},"isNSFW":false}')
+          echo "Create: $RESP"
+          TASK_ID=$(echo $RESP | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);console.log(j.result||j.id||'NONE')")
+          echo "Task ID: $TASK_ID"
+
+          echo ""
+          echo "=== STEP 3: Poll for Completion ==="
+          for i in $(seq 1 60); do
+            sleep 3
+            STATUS=$(curl -s "https://api.meshy.ai/web/v2/tasks/$TASK_ID" \
+              -H "Authorization: Bearer $MESHY_API_KEY" \
+              -H "X-Api-Version: v2026.04.03.post7" | \
+              node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);const r=j.result||{};console.log(typeof r==='object'?r.status:'INVALID')")
+            echo "Poll $i: $STATUS"
+            [ "$STATUS" = "COMPLETED" ] && break
+          done
+
+          echo ""
+          echo "=== STEP 4: Full Task Response ==="
+          FULL=$(curl -s "https://api.meshy.ai/web/v2/tasks/$TASK_ID" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7")
+          echo "$FULL" | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const j=JSON.parse(d);
+            const r=j.result||j;
+            console.log(JSON.stringify({
+              status: r.status,
+              userId: r.userId,
+              progress: r.progress,
+              result: r.result,
+              errMsg: r.errMsg,
+              triangleCount: r.triangleCount,
+              vertexCount: r.vertexCount,
+              faceCount: r.faceCount,
+              args: r.args
+            }, null, 2));
+          "
+
+          USER_ID=$(echo "$FULL" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);const r=j.result||j;console.log(r.userId||'NONE')")
+          echo "User ID: $USER_ID"
+
+          echo ""
+          echo "=== STEP 5: web/v1 Response ==="
+          WEB1=$(curl -s "https://api.meshy.ai/web/v1/tasks/$TASK_ID" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7")
+          echo "$WEB1" | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const j=JSON.parse(d);
+            const r=j.result||j;
+            console.log(JSON.stringify({
+              status: r.status,
+              modelUrl: r.modelUrl,
+              isDownloaded: r.isDownloaded,
+              isPublished: r.isPublished,
+              facesCount: r.facesCount,
+              allKeys: Object.keys(r)
+            }, null, 2));
+          "
+
+          MODEL_URL=$(echo "$WEB1" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);const r=j.result||j;console.log(r.modelUrl||'NONE')")
+          echo "modelUrl: $MODEL_URL"
+
+          echo ""
+          echo "=== STEP 6: Try Supabase Storage (via GHA) ==="
+          SUPABASE_KEY="$SUPABASE_ANON_KEY"
+          echo "Testing Supabase DNS resolution..."
+          host ynfreclsxfgnqvggfpxcc.supabase.co 2>&1 || echo "DNS lookup failed"
+          curl -s -I "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/bucket" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" | head -5
+
+          echo ""
+          echo "=== STEP 7: Direct S3 Access ==="
+          curl -s -I "https://meshy-assets.s3.us-west-2.amazonaws.com/$USER_ID/tasks/$TASK_ID/output/0/model.glb" | head -3
+
+          echo ""
+          echo "=== STEP 8: Try GLB Download (unsigned) ==="
+          for FRAME in 0 1 2 3; do
+            URL="https://assets.meshy.ai/$USER_ID/tasks/$TASK_ID/output/$FRAME/model.glb"
+            HTTP_CODE=$(curl -s -o /tmp/glb_$FRAME.glb -w "%{http_code}" -L "$URL" --max-time 10)
+            SIZE=$(wc -c < /tmp/glb_$FRAME.glb 2>/dev/null || echo 0)
+            MAGIC=$(xxd -l 4 /tmp/glb_$FRAME.glb 2>/dev/null | awk '{print $2$3$4$5}' || echo "N/A")
+            echo "Frame $FRAME: HTTP=$HTTP_CODE, Size=$SIZE, Magic=$MAGIC"
+          done
+
+          echo ""
+          echo "=== STEP 9: mark-downloaded ==="
+          MD=$(curl -s -X POST "https://api.meshy.ai/web/v2/tasks/$TASK_ID/mark-downloaded" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -d '{"format":"stl"}')
+          echo "mark-downloaded: $MD"
+
+          echo ""
+          echo "=== STEP 10: Try generate phase ==="
+          # Check if there's a separate generate endpoint
+          for EP in "/web/v2/generate/$TASK_ID" "/web/v2/tasks/$TASK_ID/generate" "/openapi/v1/generate/$TASK_ID" "/v2/generate/$TASK_ID"; do
+            R=$(curl -s -o /dev/null -w "%{http_code}" "$EP" \
+              -H "Authorization: Bearer $MESHY_API_KEY" \
+              -H "X-Api-Version: v2026.04.03.post7")
+            echo "GET $EP: $R"
+          done
+
+          echo ""
+          echo "=== STEP 11: Check for image-to-3D endpoint ==="
+          # Test if image-to-3D creates a task differently
+          echo "Trying to list existing tasks..."
+          TASKS=$(curl -s "https://api.meshy.ai/web/v2/tasks?limit=5" \
+            -H "Authorization: Bearer $MESHY_API_KEY" \
+            -H "X-Api-Version: v2026.04.03.post7")
+          echo "$TASKS" | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const j=JSON.parse(d);
+            const r=j.result||j;
+            if(Array.isArray(r)) {
+              r.forEach((t,i) => console.log(i+': '+t.id+' '+t.status));
+            } else {
+              console.log(JSON.stringify(r,null,2).substring(0,500));
+            }
+          "
+
+          echo ""
+          echo "=== COMPLETE ==="
