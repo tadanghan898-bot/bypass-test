@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - mega-trigger-v3
   workflow_dispatch:
     inputs:
       debug:
@@ -10,6 +11,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      branch:
+        description: Branch to checkout
+        required: false
+        default: ''
+        type: string
 
 jobs:
   quick-fetch:
@@ -17,7 +23,6 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: write
-    # Only run on workflow_dispatch or when commit message contains 'TRIGGER'
     if: github.event_name == 'workflow_dispatch' || (github.event.commits[0].message && contains(github.event.commits[0].message, 'TRIGGER'))
 
     steps:
@@ -26,6 +31,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          ref: ${{ github.event.inputs.branch || 'mega-trigger-v3' }}
 
       - name: Configure git
         run: |
@@ -34,7 +40,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/tadanghan898-bot/bypass-test.git
 
       - name: Prepare output directory
-        run: mkdir -p public/games
+        run: mkdir -p public/games server
 
       - name: Check Python version
         run: python3 --version
@@ -42,7 +48,7 @@ jobs:
       - name: Run quick targeted game fetcher
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 mega_fetch.py
+        run: python3 fetch_quick.py
 
       - name: Count fetched games
         run: |
@@ -57,8 +63,8 @@ jobs:
       - name: Commit and push
         if: always()
         run: |
-          git pull --rebase origin main 2>/dev/null || true
-          # Only stage actual game files, not empty dirs
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          git pull --rebase origin $CURRENT_BRANCH 2>/dev/null || true
           git add --force public/games/
           if ! git diff --cached --quiet; then
             git commit -m "mega games v3 $(date -u +'%Y-%m-%d %H:%M:%S UTC')" && \
