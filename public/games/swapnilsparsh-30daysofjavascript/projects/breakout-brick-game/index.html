@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Breakout — Brick Breaker Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Breakout</h1>
+      <div class="info">
+        <div>Score: <span id="score">0</span></div>
+        <div>Lives: <span id="lives">3</span></div>
+        <div>Level: <span id="level">1</span></div>
+      </div>
+    </header>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div class="controls">
+      <button id="startBtn">Start / Restart</button>
+      <button id="pauseBtn">Pause</button>
+      <label class="toggle">
+        Mouse Control
+        <input id="mouseToggle" type="checkbox" checked />
+      </label>
+      <small>Use ← → or Mouse to move paddle. Space to pause.</small>
+    </div>
+
+    <footer>
+      <p>Made with  — Simple JS Canvas Breakout</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

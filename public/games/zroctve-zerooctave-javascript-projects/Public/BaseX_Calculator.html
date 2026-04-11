@@ -1,0 +1,37 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="../assets/css/BaseX_Calculator.css">
+        <title>BaseX Calculator</title>
+        <script src="../assets/Js/BaseX_Calculator.js"></script>
+    </head>
+    
+    <body>
+
+      
+        <div class="box">
+            <div id="con">
+                <label>Enter Number: </label>
+                <input name="to_convert" id="to_convert" type="text" style="width: 70%;">
+            </div>
+            <br>
+            <div id="val">
+                <label>Base_X: </label>
+                <input name="x" id="x" min=2 type="number">
+                <br>
+                <br>
+                <label>Base_Y: </label>
+                <input name="y" id="y" min=2 type="number">
+            </div>
+
+            <br><br>
+            <button id="but" onclick="convert()" style="width: 40%">Calculate</button>
+       
+            <h2 id="result" style="margin-top: 10%;">Result</h2>
+            <input readonly id="res" style="width: 20%;">
+
+        </div>
+        
+       
+    </body>
+</html>

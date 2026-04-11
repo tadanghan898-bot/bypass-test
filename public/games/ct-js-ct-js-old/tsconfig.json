@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "umd",
+        "noImplicitAny": true,
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "alwaysStrict": true,
+        "strictNullChecks": true,
+        "baseUrl": "./",
+        "typeRoots": [
+            "./node_modules/@types/",
+            "./app/node_modules/@types/"
+        ],
+        "paths": {
+            "node_modules/*": [
+                "./app/node_modules/*",
+                "./node_modules/*"
+            ],
+        }
+    }
+}

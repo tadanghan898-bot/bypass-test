@@ -1,0 +1,129 @@
+<!-- Copyright (C) 2013 John Judnich
+     Released under The MIT License - see "LICENSE" file for details. -->
+
+<!DOCTYPE HTML5>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<html encoding="utf-8">
+	<head>
+		<title>Kosmos</title>
+		<meta charset="UTF-8"/>
+		<meta name="description" content="Kosmos allows you to explore a computer-generated 3D universe from your browser."/>
+		<meta name="author" content="John Judnich"/>
+		<meta name="keywords" content="kosmos, 3d universe, virtual universe, webgl"/>
+
+		<link href='http://fonts.googleapis.com/css?family=Abel|Average+Sans|Electrolize' rel='stylesheet' type='text/css'>
+		<link href="style.css" rel="stylesheet" type="text/css"/>
+
+		<script type="text/javascript" src="external/jquery-1.9.1.min.js"></script>
+		<script type="text/javascript" src="index.js"></script>
+	</head>
+
+	<body onload="jsMain();">
+		<div class="sidebar" id="sidebar">
+			<table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%"><tr><td>
+
+			<span class="title" style="cursor: pointer;" onClick="showIntro();">Kosmos</span>
+			<span class="subtitle">Virtual 3D Universe</span>
+
+			</td></tr><tr valign="middle" height="100%"><td valign="middle" height="100%">
+
+			<center>Speed</center>
+			<div id="slider" class="slider"><div id="sliderBar" class="sliderBar"></div></div>
+			<div id="reverse" onClick="toggleReverse();" class="btn">Reverse</div>
+
+			<div id="autopilot" onClick="toggleAutopilot();" class="btn lit">Autopilot</div>
+			<div height="10px">&nbsp;</div>
+			<div id="shareBtn" onClick="showShare();" class="btn">Share</div>
+
+			</td></tr><tr><td height="30px">
+			
+			<a href="http://judnich.github.io/" target="_blank"><span class="footer">Copyright &copy; 2013<br/>John Judnich</span></a>
+
+			</td></tr></table>
+		</div>
+
+		<div class="rightbar" id="rightbar">
+			<canvas id="kosmosCanvas" onClick="hideIntro();"></canvas>
+		</div>
+
+		<div class="message" id="introMessage">
+			<div class="title">Welcome to Kosmos</div>
+			<p><i>Kosmos allows you to explore a computer-generated 3D universe from your browser.</i></p>
+			<p>Click anywhere to navigate, and adjust speed with the big slider bar on the left.</p>
+			<div class="okButton" onClick="hideIntro();">Ok</div>
+		</div>
+
+		<div class="message" id="glErrorMessage">
+			<div class="title">3D Graphics Error!</div>
+			<p>Unfortunately, your web browser reports it does not support 3D graphics (no "WebGL").</p><p>
+			Please upgrade to a modern browser to use Kosmos. <b>Mozilla Firefox</b> seems to work the best.</p>
+			<div class="okButton" onClick="hideErrorMessage()">Ok</div>
+		</div>
+
+		<div class="message big" id="browserErrorMessage">
+			<div class="title">Compatibility Warning</div>
+			<p>Some browsers and operating systems (particularly <i>Microsoft Windows</i> and <i>Google Chrome</i>) have serious compatibility issues with complex <a href="http://en.wikipedia.org/wiki/WebGL">WebGL</a> apps.</p>
+
+			<p>Currently only <a href="http://firefox.com">Firefox</a> seems to work consistently across platforms. Even then, we were forced to disable features for Kosmos to function at all on Windows (specifically, not all planets in the Kosmos universe will be unique on Windows). </p>
+
+			<div class="okButton wide" onClick="hideBrowserMessage();">Try Anyway</div>
+		</div>
+
+		<div class="message tall" id="shareMessage">
+			<div class="title">Share this View</div>
+			<p>The URL below to links directly to what you see now. Simply copy and paste into your preferred networking/messaging app.</p>
+
+			<textarea readonly rows="3" id="shareLink" style="overflow:hidden" onClick="this.focus(); this.select()" class="linkBox"></textarea>
+
+			<!--<div class="okButton" onClick="hideShare();">Share on Facebook</div>
+			<div class="okButton" onClick="hideShare();">Share on Twitter</div>-->
+			<div class="okButton" onClick="hideShare();">Close</div>
+		</div>
+
+		<script type="text/javascript" src="compiled/WindowsCompatibilityUglyHacks.js"></script>
+
+		<script type="text/javascript" src="external/gl-matrix-min.js"></script>
+		<!--<script type="text/javascript" src="external/gl-matrix.js"></script>-->
+
+		<script type="text/javascript" src="external/webgl-utils.js"></script>
+		<script type="text/javascript" src="compiled/xgl.js"></script>
+		
+		<script type="text/javascript" src="compiled/NoiseShader.js"></script>
+		<script type="text/javascript" src="compiled/HeightFunctions.js"></script>
+
+		<script type="text/javascript" src="compiled/RandomStream.js"></script>
+		<script type="text/javascript" src="compiled/Bounds.js"></script>
+		<script type="text/javascript" src="compiled/Camera.js"></script>
+		<script type="text/javascript" src="compiled/ContentCache.js"></script>
+
+		<script type="text/javascript" src="compiled/Starfield.js"></script>
+		<script type="text/javascript" src="compiled/StarfieldShader.js"></script>
+
+
+		<script type="text/javascript" src="compiled/PlanetMath.js"></script>
+
+		<script type="text/javascript" src="compiled/Planetfield.js"></script>
+		<script type="text/javascript" src="compiled/PlanetfieldShader.js"></script>
+
+		<script type="text/javascript" src="compiled/PlanetFarMesh.js"></script>
+		<script type="text/javascript" src="compiled/PlanetFarMeshShader.js"></script>
+
+		<script type="text/javascript" src="compiled/FarMapGenerator.js"></script>
+		<script type="text/javascript" src="compiled/FarMapGeneratorShader.js"></script>
+
+		<script type="text/javascript" src="compiled/PlanetNearMesh.js"></script>
+		<script type="text/javascript" src="compiled/PlanetNearMeshShader.js"></script>
+
+		<script type="text/javascript" src="compiled/NearMapGenerator.js"></script>
+		<script type="text/javascript" src="compiled/NearMapGeneratorShader.js"></script>
+		<script type="text/javascript" src="compiled/NormalMapGeneratorShader.js"></script>
+
+		<script type="text/javascript" src="compiled/DetailMapGenerator.js"></script>
+		<script type="text/javascript" src="compiled/DetailMapGeneratorShader.js"></script>
+
+		<script type="text/javascript" src="compiled/Main.js"></script>
+
+
+	</body>
+</html>

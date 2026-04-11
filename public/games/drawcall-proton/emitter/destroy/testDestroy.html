@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>proton.js-render-domrender</title>
+    <meta
+      name="viewport"
+      id="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta charset="utf-8" />
+    <style type="text/css">
+      body {
+        background-color: #333333;
+        margin: 0px;
+        overflow: hidden;
+      }
+
+      #container {
+        width: 1003px;
+        height: 610px;
+        margin-top: 100px;
+        margin-left: -501px;
+        left: 50%;
+        position: absolute;
+        overflow: hidden;
+      }
+
+      .radial {
+        background: -webkit-radial-gradient(#147aff, #000);
+        background: -o-radial-gradient(#147aff, #000);
+        background: -moz-radial-gradient(#147aff, #000);
+        background: radial-gradient(#147aff, #000);
+        box-shadow: 0 0 10px #000;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container" class="radial">
+      <canvas id="testCanvas"></canvas>
+    </div>
+    <script src="../../lib/requestAnimationFrame.min.js"></script>
+    <script src="../../lib/jquery-1.9.1.min.js"></script>
+    <script src="//localhost:3001/build/proton.web.js"></script>
+    <script>
+      var proton, emitter1, emitter2;
+      var renderer;
+
+      main();
+
+      function main() {
+        canvas = document.getElementById("testCanvas");
+        canvas.width = 1003;
+        canvas.height = 610;
+
+        createProton();
+        tick();
+        addBtn();
+      }
+
+      function addBtn() {
+        var baseCss = {
+          width: "150px",
+          height: "30px",
+          color: "#fff",
+          background: "#004cf8",
+          padding: "5px",
+          textAlign: "center",
+          lineHeight: "30px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          position: "absolute"
+        };
+
+        var btn1 = $("<div>Destroy Proton</div>").css({
+          top: "10px",
+          right: "10px",
+          ...baseCss
+        });
+
+        var btn2 = $("<div>Destroy Emitter</div>").css({
+          top: "10px",
+          right: "200px",
+          ...baseCss
+        });
+
+        var inited1 = true;
+        btn1.on("click", function() {
+          if (inited1) {
+            destroy();
+          } else {
+            createProton();
+          }
+          inited1 = !inited1;
+        });
+
+        var inited2 = true;
+        btn2.on("click", function() {
+          if (inited2) {
+            emitter1.stop();
+          } else {
+            emitter1.emit();
+          }
+          inited2 = !inited2;
+        });
+
+        $("body").append(btn1);
+        $("body").append(btn2);
+      }
+
+      function destroy() {
+        if (!proton) return;
+        proton.destroy(true);
+        console.log(proton);
+        console.log(emitter1);
+        console.log(renderer);
+        proton = null;
+      }
+
+      function createProton() {
+        proton = new Proton();
+        emitter1 = createImageEmitter();
+        emitter2 = createColorEmitter();
+
+        renderer = new Proton.CanvasRenderer(canvas);
+        proton.addRenderer(renderer);
+      }
+
+      function createImageEmitter() {
+        var emitter = new Proton.Emitter();
+        emitter.rate = new Proton.Rate(new Proton.Span(10, 20), new Proton.Span(0.3, 0.5));
+        emitter.addInitialize(new Proton.Mass(1));
+        emitter.addInitialize(new Proton.Life(1, 5));
+        emitter.addInitialize(new Proton.Body(["image/fox.png", "image/safari.png", "image/chrome.png"], 100, 100));
+        emitter.addInitialize(new Proton.Radius(40));
+        emitter.addInitialize(new Proton.V(new Proton.Span(4, 8), new Proton.Span(0, 40, true), "polar"));
+
+        emitter.addBehaviour(new Proton.Alpha(1, 0));
+        emitter.addBehaviour(new Proton.Scale(0.7, 0));
+        emitter.addBehaviour(new Proton.Gravity(5.5));
+        emitter.addBehaviour(new Proton.Rotate(new Proton.Span(0, 360), new Proton.Span(-15, 15), "add"));
+        emitter.addBehaviour(new Proton.CrossZone(new Proton.RectZone(0, 0, 1003, 610), "dead"));
+
+        emitter.p.x = 1003 / 2;
+        emitter.p.y = 610 / 2;
+        emitter.emit();
+        proton.addEmitter(emitter);
+        return emitter;
+      }
+
+      function createColorEmitter() {
+        var emitter = new Proton.Emitter();
+        emitter.rate = new Proton.Rate(new Proton.Span(10, 15), new Proton.Span(0.1, 0.2));
+
+        emitter.addInitialize(new Proton.Mass(1));
+        emitter.addInitialize(new Proton.Radius(1, 20));
+        emitter.addInitialize(new Proton.Life(1, 2));
+        emitter.addInitialize(new Proton.Velocity(new Proton.Span(1, 4), new Proton.Span(0, 360), "polar"));
+
+        emitter.addBehaviour(new Proton.Alpha(1, 0));
+        emitter.addBehaviour(new Proton.Scale(1, 0));
+        emitter.addBehaviour(new Proton.Color("random"));
+        emitter.addBehaviour(new Proton.CrossZone(new Proton.CircleZone(1003 / 2, 610 / 2, 250), "dead"));
+
+        emitter.p.x = 1003 / 2;
+        emitter.p.y = 610 / 2;
+        emitter.emit();
+        proton.addEmitter(emitter);
+        return emitter;
+      }
+
+      function tick() {
+        requestAnimationFrame(tick);
+        if (proton) {
+          proton.update();
+          proton.stats.update(1);
+        }
+      }
+    </script>
+  </body>
+</html>

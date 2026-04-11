@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Report</title>
+    <link rel="stylesheet" href="../assets/css/ReportCalculator.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <div class="second">
+            <div class="left">
+                <p>STUDENT<br><br>
+                    MARKS <br><br>
+                    CALCY</p>
+            </div>
+            <div class="right">
+                <form action="/">
+                    <input type="text" name="name" placeholder="CHEMISTRY" id="chemistry">
+                    <input type="text" name="name" placeholder="PHYSICS" id="physics">
+                    <input type="text" name="name" placeholder="MATHS" id="maths">
+                    <input type="text" name="name" placeholder="ENGLISH" id="english">
+                    <input type="text" name="name" placeholder="CS/BIOLOGY" id="cs">
+                    <input type="button" value="CALCULATE" id="button">
+                
+                </form>
+
+                <p id="grill">
+                </p>           
+            </div>
+
+            <div>
+                <table>
+                    <tr>
+                        <th class="align">Percentage</th>
+                        <th class="align">Grade</th>
+                        <th class="align">Pass/Fail</th>
+                    </tr>
+            
+                    <tr>
+                        <td class="align">100>= Percentage >90</td>
+                        <td class="align">A</td>
+                        <td class="align" rowspan="6">Pass</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="align">90>= Percentage >80</td>
+                        <td class="align">B</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="align">80>= Percentage >70</td>
+                        <td class="align">C</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="align">70>= Percentage >60</td>
+                        <td class="align">D</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="align">60>= Percentage >50 </td>
+                        <td class="align">E</td>
+                       
+                    </tr>
+
+                    <tr>
+                        <td class="align">50>= Percentage >40 </td>
+                        <td class="align">E</td>
+                        
+                    </tr>
+
+                    <tr>
+                        <td class="align">40>= Percentage </td>
+                        <td class="align">F</td>
+                        <td class="align">Fail</td>
+                    </tr>
+                </table>
+            </div>           
+
+        </div>
+        
+    </div>
+</body>
+<script src="../assets/js/ReportCalculator.js"></script>
+
+</html>  

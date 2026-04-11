@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Portfolio</title>
+   <link rel="stylesheet" href="../assets/css/AnimatedPortfolio.css">
+</head>
+<body>
+    <div id="one" class="items"></div>
+    <div id="two" class="items"></div>
+    <div id="three" class="items"></div>
+    <div id="four" class="items"></div>
+    <div id="five" class="items"></div>
+    <div class="content">
+        <div class="lef">
+        <div class="heading">Hello</div>
+        <div class="mid">I am Web Designer</div>
+        <div class="end">Talk Soon !</div>
+        </div>
+        <div class="viewme">Learn More -></div>
+       <div id="contactsid" onclick="cont()" class="contact"><div id="pone" class="phonenum">94839XXXXX</div><img id="naka" height="25px" src="https://i.ibb.co/6mJ5wZp/Pngtree-call-icon-png-3621527.png" alt=""></div>
+        <div id="incre" onclick="expand()" class="linke"><a id="perfect" class="match" href="https://www.linkedin.com/in/samarth-kadam-119a25209/">www.linkedin</a><img id="linkedi" height="30px" src="https://i.ibb.co/1drcWHL/Pngtree-linkedin-social-media-icon-3609691.png" alt=""></div>
+        <div id="emailone" onclick="nextone()" class="emia"><div id="gmailacc" class="account">samarthskadam14@gmail.com</div><img id="gmailpng" height="20px" src="https://i.ibb.co/Hn4tC1T/gmail-logo-PNG2.png" alt=""></div>
+        </div>
+        <script src="script.js">
+        </script>
+    <script>
+        function expand()
+        {
+            var ones=document.getElementById('incre');
+            var pic=document.getElementById('linkedi');
+            var getit=document.getElementById('perfect');
+            if(ones.style.width==='45px')
+            {
+                ones.style.width='150px';
+                ones.style.transition='.5s';
+                pic.style.display='none';
+                ones.style.borderRadius='5px';
+                ones.style.marginLeft='-16%';
+                getit.style.display='initial';
+
+            }
+            else
+            {
+                getit.style.display='none';
+                ones.style.width='45px';
+                pic.style.display='initial';
+                ones.style.marginLeft='0%';
+                ones.style.borderRadius='50%';
+            }
+
+        }
+        function nextone()
+        {
+            var belon=document.getElementById('emailone');
+            var phot=document.getElementById('gmailpng');
+            var google=document.getElementById('gmailacc');
+            if(belon.style.width==='45px')
+            {
+                belon.style.transition='.5s';
+                belon.style.width='240px';
+                phot.style.display='none';
+                belon.style.borderRadius='5px';
+                belon.style.marginLeft='-22.7%';
+                google.style.display='initial';
+            }
+            else{
+                belon.style.width='45px';
+                belon.style.borderRadius='50%';
+                phot.style.display='initial';
+                belon.style.marginLeft='0%';
+                google.style.display='none';
+            }
+            
+        }
+        function cont()
+        {
+            var firstit=document.getElementById('contactsid');
+            var sayit=document.getElementById('pone');
+            var own=document.getElementById('naka');
+            if(firstit.style.width==='45px')
+            {
+                firstit.style.transition='.5s';
+                firstit.style.width='130px';
+                sayit.style.display='initial';
+                firstit.style.borderRadius='5px';
+                firstit.style.marginLeft='-16%';
+                own.style.display='none';
+            }
+            else{
+                firstit.style.width='45px';
+                firstit.style.borderRadius='50%';
+                own.style.display='initial';
+                firstit.style.marginLeft='0%';
+                sayit.style.display='none';
+            }
+
+        }
+
+    </script>
+</body>
+</html>
