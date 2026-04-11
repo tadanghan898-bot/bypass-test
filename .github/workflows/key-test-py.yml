@@ -1,0 +1,23 @@
+name: Key Test Python
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 << 'PYEOF'
+          import subprocess, json
+          key = "${{ secrets.MESHY_SUPABASE_KEY }}"
+          print(f"KEY_LEN={len(key)}")
+          print(f"KEY_START={key[:20]}...")
+          result = subprocess.run(
+            ["curl", "-s", "https://auth.meshy.ai/auth/v1/signup",
+             "-H", f"apikey: {key}",
+             "-H", "Content-Type: application/json",
+             "-d", '{"email":"pythontest@test.com","password":"Test123!"}'],
+            capture_output=True, text=True, timeout=15
+          )
+          print(f"Signup: {result.stdout}")
+          print(f"KEY_LEN_AFTER={len(key)}")
+          PYEOF
