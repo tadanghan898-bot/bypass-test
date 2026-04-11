@@ -1,5 +1,11 @@
 name: Create New Account v2
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      delay:
+        description: 'Delay before starting (seconds)'
+        required: false
+        default: '0'
 jobs:
   create:
     runs-on: ubuntu-latest
