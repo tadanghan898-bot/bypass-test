@@ -1,0 +1,41 @@
+name: GLB Model Download
+
+on:
+  workflow_dispatch:
+    inputs:
+      taskId:
+        description: 'Task ID'
+        required: true
+        default: '019d7cb1-cffd-75f4-9933-6bfc8dd3f07b'
+      modelUrl:
+        description: 'Full model URL'
+        required: true
+        default: 'https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/019d7cb1-cffd-75f4-9933-6bfc8dd3f07b/output/model.glb?Expires=1776038400&Signature=EsEz~a9rhsSbOzenQj4dX5VdJ8tqeEDDK~P93Sl~2BKV4cmJ4Q&Key-Pair-Id=K1VGYTHIYLM9UM'
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GLB model
+        run: |
+          echo "Task: ${{ inputs.taskId }}"
+          echo "URL: ${{ inputs.modelUrl }}"
+          curl -L -o model.glb \
+            -H "User-Agent: Mozilla/5.0" \
+            -H "Origin: https://www.meshy.ai" \
+            -H "Referer: https://www.meshy.ai/generate" \
+            --max-time 30 \
+            "${{ inputs.modelUrl }}"
+          echo "=== FILE INFO ==="
+          ls -la model.glb 2>/dev/null || echo "FILE NOT CREATED"
+          file model.glb 2>/dev/null || echo "Cannot identify file"
+          xxd -l 16 model.glb 2>/dev/null || echo "Cannot read hex"
+
+      - name: Upload artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-glb-${{ inputs.taskId }}
+          path: model.glb
