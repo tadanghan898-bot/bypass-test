@@ -20,7 +20,7 @@ on:
 jobs:
   quick-fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     permissions:
       contents: write
     if: github.event_name == 'workflow_dispatch' || (github.event.commits[0].message && contains(github.event.commits[0].message, 'TRIGGER'))
