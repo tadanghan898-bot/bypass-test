@@ -1,0 +1,190 @@
+<html>
+  <head>
+    <title>GEOWars</title>
+  </head>
+<body class="gameArea">
+    <div class="title"></div>
+    <canvas id="canvas" class="gameCanvas" width="1000" height="600"></canvas>
+    <div class="game-space-editor-space"></div>
+    <!-- <div class="footer">Control Direction With Keys: WASD</div>
+    <div class="footer">Control Firing With Cursor</div>
+    <div class="footer">Mute/Unmute With M</div> -->
+    <div id="pallet" class="pallet">
+        <form class="formContainer">
+            <h1 class="editor-heading">Level Creator</h1>
+            <div class="formContainer">
+                <div>
+                    <input type="button" id="saveGameDesign" value="Save Level">
+                    <input type="button" id="startGame" value="Start Game">
+                </div>
+            </div>
+            <hr class="spacer" width="100%" size="3" color="purple"></hr>
+            <div class="formContainer">
+                <div class="scene-name-input-submit-container">
+                    <input type="text" id="sceneName" class="name-text-input" placeholder="Scene Name" >
+                    <input type="button" id="sceneNameSubmit" value="Add Scene">
+                </div>
+                <div class="scene-name-input-submit-container">
+                    <input type="text" id="Time" class="name-text-input" placeholder="Time">
+                    <input type="button" id="TimeSubmit" value="Add Time">
+                </div>
+                <div class="scene-name-input-submit-container">
+                    <label for="Repeats">Repeats:</label>
+                    <input class="integer-input" type="text" id="Repeats" >
+                    <!-- <label for="StartingIndex">Starting Index:</label>
+                    <input type="text" id="StartingIndex" class="integer-input"> -->
+                    <input type="button" id="LoopSubmit" value="Add Loop">
+                </div>
+                <div>
+                    <select name="OperationType" id="OperationType">
+                        <option value="SceneTimeFactor">Time Factor for Scene</option>
+                        <option value="SceneNumberFactor">Spawn Number Factor for Scene</option>
+                        <option value="ResetToStartingValues">Reset to Scene StartingValues</option>
+                        <option value="UpgradeBullets">Bullet Upgrade</option>
+                    </select>
+                    <input type="text" id="OperationFactor" class="name-text-input" placeholder="Factor">
+                    <input type="button" id="OperationSubmit" value="Add Operation">
+                </div>
+            </div>
+        </form>
+        <div class="button-column">
+            <button id="MakeEvent">Create Event</button>
+            <div class="spacer"></div>
+            <button id="Arrow">Arrow</button>
+            <button id="BoxBox">BoxBox</button>
+            <button id="Pinwheel">Pinwheel</button>
+            <button id="Weaver">Weaver</button>
+            <button id="Grunt">Grunt</button>
+            <button id="Singularity">Singularity</button>
+        </div>
+            
+        <div id="animationTestBox">
+            <canvas id="animationTestCanvas" class="animationCanvas" width="200" height="200"></canvas>
+        </div>
+        <div class="coordinate-section">
+            <div>
+                <label for="xCoordinate" class="label-text-event">X:</label>
+                <input type="text" id="xCoordinate" class="coordinate-text">
+                <label for="yCoordinate" class="label-text-event">Y:</label>
+                <input type="text" id="yCoordinate" class="coordinate-text">
+                <label for="angle" class="label-text-event">angle:</label>
+                <input type="text" id="angle" class="coordinate-text">
+            </div>
+            <div style="color:tomato;">
+                <button id="changeCoordinates" >Change Coordinates</button>
+                <label class="switch">
+                    <input type="checkbox" id="shipRelative">
+                    <span class="slider round"></span>
+                </label>
+                ship relative
+                
+            </div>
+           
+            <button id="setRandomCoordinates" >Random Change</button>
+            <hr class="spacer" width="100%" size="3" color="tomato"></hr>
+            <div>
+                <label for="numberToSpawn" class="label-text-event">Randomly Count:</label>
+                <input type="text" class="integer-input" id="numberToGenerate">
+            </div>
+            <button id="randomSpawnCoordinate">Random Spawn Coordinates</button>
+            <select name="Enemies" id="possibleSpawns" multiple class="multi-select">
+                <option value="Arrow">Arrow</option>
+                <option value="BoxBox">BoxBox</option>
+                <option value="Pinwheel">Pinwheel</option>
+                <option value="Weaver">Weaver</option>
+                <option value="Grunt">Grunt</option>
+                <option value="Singularity">Singularity</option>
+            </select>
+        </div>
+    </div>
+    <canvas id="LevelEditorCanvas" class="level-editor-canvas" width="1200" height="300"></canvas>
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modalText">Control direction with left joystick / WASD</div>
+            <div class="modalText">Control firing with right joystick / cursor</div>
+            <div class="modalText">Mute/unmute with M</div>
+            <div>
+                <div>
+                    <input type="button" id="startGameModal" value="Start Game">
+                    <input type="button" id="LevelEditorModal" value="Create a Level">
+                </div>
+                <div>
+                    <input type="text" id="loadGameDesignInputModal" >
+                    <input type="button" id="loadGameDesignModal" value="Load Level">
+                </div>
+            </div>
+            <!-- <div class="modalText">
+            Avoid Enemy Shapes
+            </div> -->
+        </div>
+    </div>
+
+    
+    <div id="endModal" class="endModal">
+      <div class="modal-content">
+        <span class="endClose">&times;</span>
+
+        <div class="modalText">
+          Game Over
+        </div>
+        <div id="score" class="scoreText">
+          score: score
+        </div>
+        <div class="modalText">
+          play again?
+        </div>
+      </div>
+    </div>
+
+    <div id="pauseModal" class="pauseModal">
+      <div class="modal-content">
+        <!-- <span class="endClose">&times;</span> -->
+
+        <div class="modalText">
+          Paused
+        </div>
+        <div class="modalText">
+          press P or Start to continue
+        </div>
+      </div>
+    </div>
+
+  <script>
+    // Get the modal
+    var modal = document.getElementById('myModal');
+
+    // Get the button that opens the modal
+    // var btn = document.getElementById("myBtn");
+
+    // Get the <span> element that closes the modal
+    var span = document.getElementsByClassName("close")[0];
+
+    // When the user clicks the button, open the modal 
+    // btn.onclick = function () {
+    //   modal.style.display = "block";
+    // }
+
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function () {
+      modal.style.display = "none";
+      window.modelClosed = true
+    }
+
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function (event) {
+      if (event.target == modal) {
+        window.modelClosed = true
+        modal.style.display = "none";
+      }
+    }
+  </script>
+
+    
+      <!-- <div id="statsPanel"></div> -->
+    <link rel="stylesheet" type="text/css" media="screen" href="./game_style.css" />  
+    <!-- <script type="application/javascript" src="GEOWars/vendor/keymaster.js"></script> -->
+    <script type="application/javascript" src="./dist/bundle.js"></script>
+  </body>
+</html>
+

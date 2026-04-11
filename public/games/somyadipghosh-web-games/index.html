@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Game Hub</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="flappy-fix.css">
+    <link rel="stylesheet" href="responsive.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    
+    <!-- Beta Notification Banner -->
+    <div class="beta-notification-banner">
+        <div class="notification-content">
+            <span class="notification-text">This project is still in beta phase. Click here to give your feedback.</span>
+            <span class="notification-text">This project is still in beta phase. Click here to give your feedback.</span>
+            <span class="notification-text">This project is still in beta phase. Click here to give your feedback.</span>
+            <span class="notification-text">This project is still in beta phase. Click here to give your feedback.</span>
+        </div>
+    </div>
+    
+    <!-- Mobile/Tablet Warning Modal -->
+    <div id="device-warning-modal" class="device-warning-modal">
+        <div class="warning-modal-overlay"></div>
+        <div class="warning-modal-content">
+            <div class="warning-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h2 id="warning-title">Desktop Experience Recommended</h2>
+            <div id="warning-description" class="warning-message">
+                <p>This AI Game Hub is optimized for <strong>desktop and laptop</strong> devices for the best gaming experience.</p>
+                <p>While you can continue on your mobile device, you may experience:</p>
+                <ul>
+                    <li><i class="fas fa-gamepad"></i> Limited touch controls for complex games</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Reduced performance and frame rates</li>
+                    <li><i class="fas fa-compress-alt"></i> Smaller game interfaces and text</li>
+                    <li><i class="fas fa-exclamation-circle"></i> Possible gameplay and interaction issues</li>
+                </ul>
+                <div class="recommendation-box">
+                    <i class="fas fa-lightbulb"></i>
+                    <strong>For the ultimate AI gaming experience:</strong> Switch to a desktop or laptop computer with a keyboard and mouse.
+                </div>
+            </div>
+            <div class="warning-actions">
+                <button id="continue-mobile" class="warning-btn primary">
+                    <i class="fas fa-mobile-alt"></i>
+                    Continue Anyway
+                </button>
+                <button id="understand-warning" class="warning-btn secondary">
+                    <i class="fas fa-check"></i>
+                    I Understand
+                </button>
+            </div>
+            <div class="warning-footer">
+                <label class="dont-show-again">
+                    <input type="checkbox" id="dont-show-warning">
+                    <span>Don't show this warning again</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar" id="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <svg class="brand-logo" width="40" height="40" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#e74c3c;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#c0392b;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="logoGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#27ae60;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#229954;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="32" cy="32" r="30" fill="url(#logoGrad1)" stroke="#fff" stroke-width="2" opacity="0.9"/>
+                    <rect x="16" y="20" width="32" height="24" rx="4" fill="#2c3e50" stroke="#fff" stroke-width="1"/>
+                    <circle cx="24" cy="28" r="4" fill="url(#logoGrad2)"/>
+                    <circle cx="40" cy="28" r="4" fill="url(#logoGrad2)"/>
+                    <circle cx="24" cy="28" r="2" fill="#fff"/>
+                    <circle cx="40" cy="28" r="2" fill="#fff"/>
+                    <rect x="26" y="36" width="12" height="4" rx="2" fill="#34495e"/>
+                    <line x1="32" y1="20" x2="32" y2="10" stroke="#fff" stroke-width="2"/>
+                    <circle cx="32" cy="8" r="3" fill="url(#logoGrad3)"/>
+                    <circle cx="32" cy="8" r="5" fill="none" stroke="url(#logoGrad3)" stroke-width="1" opacity="0.6"/>
+                </svg>
+                <span class="brand-text">AI Game Hub</span>
+            </div>
+            
+            <div class="navbar-menu" id="navbar-menu">
+                <div class="navbar-nav">
+                    <a href="#home" class="nav-link active" data-target="home">
+                        <i class="fas fa-home"></i>
+                        <span>Home</span>
+                    </a>
+                    <a href="#games" class="nav-link" data-target="games">
+                        <i class="fas fa-gamepad"></i>
+                        <span>Games</span>
+                    </a>
+                    <a href="#leaderboard" class="nav-link" data-target="leaderboard">
+                        <i class="fas fa-trophy"></i>
+                        <span>Leaderboard</span>
+                    </a>
+                    <a href="#about" class="nav-link" data-target="about">
+                        <i class="fas fa-info-circle"></i>
+                        <span>About</span>
+                    </a>
+                </div>
+                
+                <div class="navbar-actions">
+                    <a href="https://github.com/somyadipghosh/Web-games" target="_blank" class="github-btn">
+                        <i class="fab fa-github"></i>
+                        <span>Contribute</span>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="navbar-toggle" id="navbar-toggle">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Header Section -->
+    <header class="hero-header" id="home">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <div class="badge-content">
+                        <i class="fas fa-robot"></i>
+                        <span>Powered by Advanced AI</span>
+                        <div class="badge-glow"></div>
+                    </div>
+                </div>
+                
+                <div class="hero-title-section">
+                    <h1 class="hero-title">
+                        <span class="title-highlight">AI Game Hub</span>
+                        <div class="title-decoration">
+                            <div class="decoration-line"></div>
+                            <div class="decoration-diamond">
+                                <i class="fas fa-gem"></i>
+                            </div>
+                            <div class="decoration-line"></div>
+                        </div>
+                    </h1>
+                    
+                    <div class="hero-subtitle">
+                        <p class="subtitle-main">Challenge yourself against <span class="highlight-text">intelligent AI opponents</span></p>
+                        <p class="subtitle-secondary">Experience the future of gaming with advanced artificial intelligence</p>
+                    </div>
+                </div>
+                
+                <div class="hero-features">
+                    <div class="feature-grid">
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h3>Smart AI</h3>
+                                <p>Advanced algorithms</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h3>Compete</h3>
+                                <p>Beat the leaderboard</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-mobile-alt"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h3>Mobile Ready</h3>
+                                <p>Play anywhere</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-code"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h3>Open Source</h3>
+                                <p>Free & customizable</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="hero-cta">
+                    <button class="cta-primary" id="start-playing-btn">
+                        <i class="fas fa-play"></i>
+                        <span>Start Playing</span>
+                        <div class="button-ripple"></div>
+                    </button>
+                    <button class="cta-secondary" id="view-stats-btn">
+                        <i class="fas fa-chart-line"></i>
+                        <span>View Stats</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="ai-brain-container">
+                    <div class="ai-brain">
+                        <div class="brain-core">
+                            <div class="neural-network">
+                                <div class="neural-node node-1"></div>
+                                <div class="neural-node node-2"></div>
+                                <div class="neural-node node-3"></div>
+                                <div class="neural-node node-4"></div>
+                                <div class="neural-node node-5"></div>
+                                <div class="neural-connection conn-1"></div>
+                                <div class="neural-connection conn-2"></div>
+                                <div class="neural-connection conn-3"></div>
+                                <div class="neural-connection conn-4"></div>
+                            </div>
+                            <div class="brain-pulse"></div>
+                        </div>
+                        
+                        <div class="floating-icons">
+                            <div class="floating-icon icon-1">
+                                <i class="fas fa-chess"></i>
+                            </div>
+                            <div class="floating-icon icon-2">
+                                <i class="fas fa-gamepad"></i>
+                            </div>
+                            <div class="floating-icon icon-3">
+                                <i class="fas fa-puzzle-piece"></i>
+                            </div>
+                            <div class="floating-icon icon-4">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats-counter">
+                    <div class="counter-item">
+                        <div class="counter-number" data-count="13">0</div>
+                        <div class="counter-label">Games Available</div>
+                    </div>
+                    <div class="counter-item">
+                        <div class="counter-number" data-count="1000">0</div>
+                        <div class="counter-label">AI Opponents Defeated</div>
+                    </div>
+                    <div class="counter-item">
+                        <div class="counter-number" data-count="5000">0</div>
+                        <div class="counter-label">Games Played</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scroll-indicator">
+            <div class="scroll-text">Scroll to explore games</div>
+            <div class="scroll-arrow">
+                <i class="fas fa-chevron-down"></i>
+            </div>
+        </div>
+    </header>
+
+    <div class="container" id="games">
+        
+        <div class="game-selector">
+            <div class="game-tab active" data-game="tictactoe">
+                <i class="fas fa-th"></i>
+                <span>Tic Tac Toe</span>
+            </div>
+            <div class="game-tab" data-game="rps">
+                <i class="fas fa-hand-rock"></i>
+                <span>Rock Paper Scissors</span>
+            </div>
+            <div class="game-tab" data-game="memory">
+                <i class="fas fa-brain"></i>
+                <span>Memory Game</span>
+            </div>
+            <div class="game-tab" data-game="number-guess">
+                <i class="fas fa-question"></i>
+                <span>Number Guess</span>
+            </div>
+            <div class="game-tab" data-game="pong">
+                <i class="fas fa-table-tennis"></i>
+                <span>Ping Pong</span>
+            </div>
+            <div class="game-tab" data-game="shooter">
+                <i class="fas fa-crosshairs"></i>
+                <span>Space Shooter</span>
+            </div>
+            <div class="game-tab" data-game="snake">
+                <i class="fas fa-share-alt"></i>
+                <span>AI Snake</span>
+            </div>
+            <div class="game-tab" data-game="word-guess">
+                <i class="fas fa-spell-check"></i>
+                <span>Word Guess</span>
+            </div>
+            <div class="game-tab" data-game="catch">
+                <i class="fas fa-hand-paper"></i>
+                <span>Catch Game</span>
+            </div>
+            <div class="game-tab" data-game="country-quiz">
+                <i class="fas fa-flag"></i>
+                <span>Country Quiz</span>
+            </div>
+            <div class="game-tab" data-game="typing">
+                <i class="fas fa-keyboard"></i>
+                <span>Typing Test</span>
+            </div>
+            <div class="game-tab" data-game="chess">
+                <i class="fas fa-chess"></i>
+                <span>Chess</span>
+            </div>
+            <div class="game-tab" data-game="flappy">
+                <i class="fas fa-dove"></i>
+                <span>Flappy Bird</span>
+            </div>
+        </div>
+
+        <!-- Tic Tac Toe Game -->
+        <div id="tictactoe-game" class="game-container active">
+            <div class="game-header">
+                <h2><i class="fas fa-th"></i> Tic Tac Toe</h2>
+            </div>
+            
+            <div class="game-info">
+                <div class="score-board">
+                    <div class="score">
+                        <span>Player (X): </span>
+                        <span id="player-score">0</span>
+                    </div>
+                    <div class="score">
+                        <span>AI (O): </span>
+                        <span id="ai-score">0</span>
+                    </div>
+                    <div class="score">
+                        <span>Draws: </span>
+                        <span id="draw-score">0</span>
+                    </div>
+                </div>
+                <div class="difficulty-selector">
+                    <label for="difficulty">AI Difficulty:</label>
+                    <select id="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard" selected>Hard</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="game-board" id="game-board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+            
+            <div class="game-status">
+                <h3 id="status">Your turn! Click a cell to play.</h3>
+                <button id="reset-btn" class="game-button">
+                    <i class="fas fa-redo"></i> New Game
+                </button>
+                <button id="reset-scores-btn" class="game-button secondary">
+                    <i class="fas fa-trash"></i> Reset Scores
+                </button>
+            </div>
+            
+            <div class="turn-indicator">
+                <div class="turn-display">
+                    <div class="player-turn active" id="player-turn">
+                        <span>X</span>
+                        <span>Your Turn</span>
+                    </div>
+                    <div class="ai-turn" id="ai-turn">
+                        <span>O</span>
+                        <span>AI Turn</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rock Paper Scissors Game -->
+        <div id="rps-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-hand-rock"></i> Rock Paper Scissors</h2>
+            </div>
+            
+            <div class="rps-scores">
+                <div class="score">Player: <span id="rps-player-score">0</span></div>
+                <div class="score">AI: <span id="rps-ai-score">0</span></div>
+            </div>
+            
+            <div class="rps-choices">
+                <button class="choice-btn" data-choice="rock">
+                    <i class="fas fa-hand-rock"></i>
+                    <span>Rock</span>
+                </button>
+                <button class="choice-btn" data-choice="paper">
+                    <i class="fas fa-hand-paper"></i>
+                    <span>Paper</span>
+                </button>
+                <button class="choice-btn" data-choice="scissors">
+                    <i class="fas fa-hand-scissors"></i>
+                    <span>Scissors</span>
+                </button>
+            </div>
+            
+            <div class="rps-result">
+                <div class="choice-display">
+                    <div class="player-choice">
+                        <h4>You</h4>
+                        <div class="choice-icon" id="player-choice-icon"></div>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div class="ai-choice">
+                        <h4>AI</h4>
+                        <div class="choice-icon" id="ai-choice-icon"></div>
+                    </div>
+                </div>
+                <div class="result-message" id="rps-result-message">Choose your move!</div>
+            </div>
+            
+            <button id="rps-reset" class="game-button secondary">
+                <i class="fas fa-redo"></i> Reset Game
+            </button>
+            
+            <div class="rps-instructions">
+                <p><strong>How to Play:</strong> Choose Rock, Paper, or Scissors to battle the AI</p>
+                <p><strong>Rules:</strong> Rock beats Scissors, Scissors beat Paper, Paper beats Rock</p>
+                <p><strong>Goal:</strong> Outsmart the AI and win more rounds than it does!</p>
+            </div>
+        </div>
+
+        <!-- Memory Game -->
+        <div id="memory-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-brain"></i> Memory Challenge</h2>
+            </div>
+            
+            <div class="memory-info">
+                <div class="memory-stats">
+                    <div class="stat">Level: <span id="memory-level">1</span></div>
+                    <div class="stat">Score: <span id="memory-score">0</span></div>
+                    <div class="stat">Lives: <span id="memory-lives">3</span></div>
+                </div>
+            </div>
+            
+            <div class="memory-board" id="memory-board">
+                <div class="memory-cell" data-color="red" data-icon="heart"><i class="fas fa-heart"></i></div>
+                <div class="memory-cell" data-color="red" data-icon="heart"><i class="fas fa-heart"></i></div>
+                <div class="memory-cell" data-color="blue" data-icon="star"><i class="fas fa-star"></i></div>
+                <div class="memory-cell" data-color="blue" data-icon="star"><i class="fas fa-star"></i></div>
+                <div class="memory-cell" data-color="green" data-icon="leaf"><i class="fas fa-leaf"></i></div>
+                <div class="memory-cell" data-color="green" data-icon="leaf"><i class="fas fa-leaf"></i></div>
+                <div class="memory-cell" data-color="yellow" data-icon="sun"><i class="fas fa-sun"></i></div>
+                <div class="memory-cell" data-color="yellow" data-icon="sun"><i class="fas fa-sun"></i></div>
+                <div class="memory-cell" data-color="purple" data-icon="gem"><i class="fas fa-gem"></i></div>
+                <div class="memory-cell" data-color="purple" data-icon="gem"><i class="fas fa-gem"></i></div>
+                <div class="memory-cell" data-color="orange" data-icon="fire"><i class="fas fa-fire"></i></div>
+                <div class="memory-cell" data-color="orange" data-icon="fire"><i class="fas fa-fire"></i></div>
+                <div class="memory-cell" data-color="pink" data-icon="crown"><i class="fas fa-crown"></i></div>
+                <div class="memory-cell" data-color="pink" data-icon="crown"><i class="fas fa-crown"></i></div>
+                <div class="memory-cell" data-color="cyan" data-icon="snowflake"><i class="fas fa-snowflake"></i></div>
+                <div class="memory-cell" data-color="cyan" data-icon="snowflake"><i class="fas fa-snowflake"></i></div>
+            </div>
+            
+            <div class="memory-controls">
+                <button id="memory-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="memory-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <div class="memory-message" id="memory-message">Press Start to begin!</div>
+            
+            <div class="memory-instructions">
+                <p><strong>How to Play:</strong> Click cards to flip them and find matching pairs</p>
+                <p><strong>Goal:</strong> Match all pairs with the fewest moves possible</p>
+                <p><strong>Tip:</strong> Remember where you've seen each symbol to match pairs efficiently</p>
+            </div>
+        </div>
+
+        <!-- Number Guessing Game -->
+        <div id="number-guess-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-question"></i> Number Guessing Challenge</h2>
+            </div>
+            
+            <div class="number-game-info">
+                <div class="number-stats">
+                    <div class="stat">Range: <span id="number-range">1-100</span></div>
+                    <div class="stat">Attempts: <span id="number-attempts">0</span></div>
+                    <div class="stat">Best: <span id="number-best">-</span></div>
+                </div>
+            </div>
+            
+            <div class="number-input-section">
+                <input type="number" id="number-input" placeholder="Enter your guess..." min="1" max="100">
+                <button id="number-submit" class="game-button">
+                    <i class="fas fa-check"></i> Guess
+                </button>
+            </div>
+            
+            <div class="number-feedback" id="number-feedback">
+                I'm thinking of a number between 1 and 100...
+            </div>
+            
+            <div class="number-controls">
+                <button id="number-new-game" class="game-button">
+                    <i class="fas fa-plus"></i> New Game
+                </button>
+                <select id="number-difficulty">
+                    <option value="easy">Easy (1-50)</option>
+                    <option value="medium" selected>Medium (1-100)</option>
+                    <option value="hard">Hard (1-500)</option>
+                </select>
+            </div>
+            
+            <div class="number-history" id="number-history"></div>
+            
+            <div class="number-instructions">
+                <p><strong>How to Play:</strong> Guess the secret number in the chosen range</p>
+                <p><strong>Tips:</strong> Use the hints (higher/lower) to narrow down your guesses</p>
+                <p><strong>Goal:</strong> Find the number in as few attempts as possible!</p>
+            </div>
+        </div>
+
+        <!-- Ping Pong Game -->
+        <div id="pong-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-table-tennis"></i> Ping Pong</h2>
+            </div>
+            
+            <div class="pong-info">
+                <div class="pong-scores">
+                    <div class="score-item">
+                        <span>You</span>
+                        <span id="player-pong-score">0</span>
+                    </div>
+                    <div class="score-item">
+                        <span>AI</span>
+                        <span id="ai-pong-score">0</span>
+                    </div>
+                </div>
+                <div class="pong-difficulty">
+                    <label for="pong-difficulty">AI Speed:</label>
+                    <select id="pong-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="pong-canvas-container">
+                <canvas id="pong-canvas" width="600" height="300"></canvas>
+                <div class="pong-overlay" id="pong-overlay">
+                    <div class="pong-message" id="pong-message">Press Start to Play!</div>
+                </div>
+            </div>
+            
+            <div class="pong-controls">
+                <button id="pong-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="pong-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="pong-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Enhanced Mobile Touch Controls for Pong -->
+            <div class="mobile-controls pong-mobile-controls" id="pong-mobile-controls">
+                <div class="controls-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>Touch Controls</span>
+                </div>
+                <div class="paddle-controls">
+                    <div class="paddle-control">
+                        <button class="paddle-button" id="pong-up-btn">
+                            <i class="fas fa-chevron-up"></i>
+                            <span>UP</span>
+                        </button>
+                        <button class="paddle-button" id="pong-down-btn">
+                            <i class="fas fa-chevron-down"></i>
+                            <span>DOWN</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="controls-instructions">
+                    <h4>How to Play</h4>
+                    <ul>
+                        <li>Tap UP/DOWN buttons to move your paddle</li>
+                        <li>Block the ball from reaching your side</li>
+                        <li>First to score wins!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="pong-instructions">
+                <p><strong>Controls:</strong> Use ↑ and ↓ arrow keys or W and S keys to move your paddle</p>
+                <p><strong>Goal:</strong> First to 5 points wins!</p>
+            </div>
+        </div>
+
+        <!-- Space Shooter Game -->
+        <div id="shooter-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-crosshairs"></i> Space Shooter</h2>
+            </div>
+            
+            <div class="shooter-info">
+                <div class="shooter-stats">
+                    <div class="stat-item">
+                        <span>Score: <span id="shooter-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Lives: <span id="shooter-lives">3</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Level: <span id="shooter-level">1</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Best: <span id="shooter-best">-</span></span>
+                    </div>
+                </div>
+                <div class="shooter-difficulty">
+                    <label for="shooter-difficulty">Difficulty:</label>
+                    <select id="shooter-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="shooter-canvas-container">
+                <canvas id="shooter-canvas" width="600" height="400"></canvas>
+                <div class="shooter-overlay" id="shooter-overlay">
+                    <div class="shooter-message" id="shooter-message">Press Start to Begin!</div>
+                </div>
+            </div>
+            
+            <div class="shooter-controls">
+                <button id="shooter-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="shooter-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="shooter-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Enhanced Mobile Touch Controls for Space Shooter -->
+            <div class="mobile-controls shooter-mobile-controls" id="shooter-mobile-controls">
+                <div class="controls-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>Touch Controls</span>
+                </div>
+                <div class="shooter-joystick-container">
+                    <div class="movement-joystick">
+                        <div class="joystick-label">Movement</div>
+                        <div class="touch-controls-grid">
+                            <button class="touch-button" id="shooter-left-btn">
+                                <i class="fas fa-chevron-left"></i>
+                                <span>LEFT</span>
+                            </button>
+                            <button class="touch-button" id="shooter-right-btn">
+                                <i class="fas fa-chevron-right"></i>
+                                <span>RIGHT</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <div class="joystick-label">Actions</div>
+                        <div class="action-buttons-grid">
+                            <button class="action-button" id="shooter-fire-btn">
+                                <i class="fas fa-crosshairs"></i>
+                            </button>
+                            <button class="action-button" id="shooter-boost-btn">
+                                <i class="fas fa-rocket"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="controls-instructions">
+                    <h4>How to Play</h4>
+                    <ul>
+                        <li>Use LEFT/RIGHT to move your spaceship</li>
+                        <li>Tap FIRE to shoot enemies</li>
+                        <li>Avoid enemy bullets and collisions</li>
+                        <li>Survive as long as possible!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="shooter-instructions">
+                <p><strong>Controls:</strong> Use ← → arrow keys or A/D to move, SPACE to shoot</p>
+                <p><strong>Goal:</strong> Destroy AI enemy ships and avoid their attacks!</p>
+            </div>
+        </div>
+
+        <!-- AI Snake Game -->
+        <div id="snake-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-snake"></i> AI Snake Battle</h2>
+            </div>
+            
+            <div class="snake-info">
+                <div class="snake-stats">
+                    <div class="stat-item">
+                        <span><i class="fas fa-user" style="color: #27ae60;"></i> Your Score: <span id="player-snake-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-robot" style="color: #e74c3c;"></i> AI Score: <span id="ai-snake-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-apple-alt" style="color: #f1c40f;"></i> Food: <span id="snake-food-count">0</span></span>
+                    </div>
+                </div>
+                <div class="snake-difficulty">
+                    <label for="snake-difficulty">AI Intelligence:</label>
+                    <select id="snake-difficulty">
+                        <option value="easy">Basic</option>
+                        <option value="medium" selected>Smart</option>
+                        <option value="hard">Genius</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="snake-canvas-container">
+                <canvas id="snake-canvas" width="480" height="320"></canvas>
+                <div class="snake-overlay" id="snake-overlay">
+                    <div class="snake-message" id="snake-message">Press Start to Begin!</div>
+                </div>
+            </div>
+            
+            <div class="snake-controls">
+                <button id="snake-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="snake-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="snake-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Enhanced Mobile Touch Controls for Snake -->
+            <div class="mobile-controls snake-mobile-controls" id="snake-mobile-controls">
+                <div class="controls-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>Touch Controls</span>
+                </div>
+                <div class="dpad-container">
+                    <button class="dpad-button dpad-up" id="snake-up-btn">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button class="dpad-button dpad-left" id="snake-left-btn">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="dpad-button dpad-center">
+                        <i class="fas fa-circle"></i>
+                    </div>
+                    <button class="dpad-button dpad-right" id="snake-right-btn">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="dpad-button dpad-down" id="snake-down-btn">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="controls-instructions">
+                    <h4>How to Play</h4>
+                    <ul>
+                        <li>Use directional pad to move your snake</li>
+                        <li>Collect food to grow and score points</li>
+                        <li>Avoid walls and other snakes</li>
+                        <li>Compete against the AI snake!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="snake-instructions">
+                <p><strong>Controls:</strong> Use arrow keys to move your snake (green)</p>
+                <p><strong>Goal:</strong> Collect more food than the AI snake (red) without colliding!</p>
+            </div>
+        </div>
+
+        <!-- Word Guessing Game -->
+        <div id="word-guess-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-spell-check"></i> Word Guessing Battle</h2>
+            </div>
+            
+            <div class="word-guess-info">
+                <div class="word-stats">
+                    <div class="stat-item">
+                        <span>Round: <span id="word-round">1</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Your Score: <span id="player-word-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>AI Score: <span id="ai-word-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Streak: <span id="word-streak">0</span></span>
+                    </div>
+                </div>
+                <div class="word-difficulty">
+                    <label for="word-difficulty">Category:</label>
+                    <select id="word-difficulty">
+                        <option value="animals">Animals</option>
+                        <option value="technology" selected>Technology</option>
+                        <option value="science">Science</option>
+                        <option value="mixed">Mixed</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="word-display">
+                <div class="current-word" id="current-word">_ _ _ _ _</div>
+                <div class="word-hint" id="word-hint">Hint will appear here</div>
+            </div>
+            
+            <div class="letter-grid" id="letter-grid">
+                <!-- Letters will be generated dynamically -->
+            </div>
+            
+            <div class="word-guess-result" id="word-guess-result">
+                <div class="result-message" id="word-result-message">Start guessing letters!</div>
+                <div class="wrong-letters">Wrong: <span id="wrong-letters"></span></div>
+            </div>
+            
+            <div class="word-controls">
+                <button id="word-start" class="game-button">
+                    <i class="fas fa-play"></i> New Game
+                </button>
+                <button id="word-hint-btn" class="game-button secondary">
+                    <i class="fas fa-lightbulb"></i> Get Hint
+                </button>
+                <button id="word-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset Scores
+                </button>
+            </div>
+            
+            <div class="word-instructions">
+                <p><strong>How to Play:</strong> Guess the word by clicking letters</p>
+                <p><strong>Goal:</strong> Solve more words than the AI opponent!</p>
+            </div>
+        </div>
+
+        <!-- Catch Game -->
+        <div id="catch-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-hand-paper"></i> Catch Game</h2>
+            </div>
+            
+            <div class="catch-info">
+                <div class="catch-stats">
+                    <div class="stat-item">
+                        <span><i class="fas fa-trophy" style="color: #f1c40f;"></i> Score: <span id="catch-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-heart" style="color: #e74c3c;"></i> Lives: <span id="catch-lives">3</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-medal" style="color: #3498db;"></i> Best: <span id="catch-best">0</span></span>
+                    </div>
+                </div>
+                <div class="catch-difficulty">
+                    <label for="catch-difficulty">Difficulty:</label>
+                    <select id="catch-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="catch-canvas-container">
+                <canvas id="catch-canvas" width="600" height="400"></canvas>
+                <div class="catch-overlay" id="catch-overlay">
+                    <div class="catch-message" id="catch-message">Press Start to Begin!</div>
+                </div>
+            </div>
+            
+            <div class="catch-controls">
+                <button id="catch-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="catch-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="catch-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+            
+            <!-- Enhanced Mobile Touch Controls for Catch -->
+            <div class="mobile-controls catch-mobile-controls" id="catch-mobile-controls">
+                <div class="controls-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>Touch Controls</span>
+                </div>
+                <div class="touch-controls-grid">
+                    <button class="touch-button" id="catch-left-btn">
+                        <i class="fas fa-chevron-left"></i>
+                        <span>LEFT</span>
+                    </button>
+                    <button class="touch-button" id="catch-right-btn">
+                        <i class="fas fa-chevron-right"></i>
+                        <span>RIGHT</span>
+                    </button>
+                </div>
+                <div class="controls-instructions">
+                    <h4>How to Play</h4>
+                    <ul>
+                        <li>Use LEFT/RIGHT to move your basket</li>
+                        <li>Catch falling fruits to score points</li>
+                        <li>Avoid bombs - they end the game!</li>
+                        <li>Try to beat your high score!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="catch-instructions">
+                <p><strong>Controls:</strong> Use ← → arrow keys or A/D to move your basket</p>
+                <p><strong>Goal:</strong> Catch falling fruits and avoid bombs! Each bomb ends the game!</p>
+            </div>
+        </div>
+
+        <!-- Country Quiz Game -->
+        <div id="country-quiz-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-flag"></i> Country Quiz</h2>
+            </div>
+            
+            <div class="quiz-info">
+                <div class="quiz-stats">
+                    <div class="stat-item">
+                        <span>Round: <span id="quiz-round">1</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Score: <span id="quiz-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Total: <span id="quiz-total-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Streak: <span id="quiz-streak">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Best: <span id="quiz-best">0</span></span>
+                    </div>
+                </div>
+                <div class="quiz-difficulty">
+                    <label for="quiz-difficulty">Region:</label>
+                    <select id="quiz-difficulty">
+                        <option value="world">World Mix</option>
+                        <option value="europe">Europe</option>
+                        <option value="asia">Asia</option>
+                        <option value="africa">Africa</option>
+                        <option value="americas">Americas</option>
+                        <option value="oceania">Oceania</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="quiz-game-area">
+                <div class="flag-display">
+                    <div id="flag-container">
+                        <div id="flag-image">🏳️</div>
+                    </div>
+                    <div id="quiz-message" class="quiz-message">Click Start to begin!</div>
+                </div>
+                
+                <div class="quiz-options" id="quiz-options">
+                    <!-- Options will be dynamically generated -->
+                </div>
+                
+                <div class="quiz-timer">
+                    <div class="timer-bar">
+                        <div id="timer-fill" class="timer-fill"></div>
+                    </div>
+                    <span id="timer-text">15s</span>
+                </div>
+            </div>
+            
+            <div class="quiz-controls">
+                <button id="quiz-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Quiz
+                </button>
+                <button id="quiz-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="quiz-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+                <button id="quiz-hint" class="game-button secondary">
+                    <i class="fas fa-lightbulb"></i> Hint (3 left)
+                </button>
+            </div>
+            
+            <div class="quiz-instructions">
+                <p><strong>🎯 How to Play</strong></p>
+                <p>🏳️ Look at the flag and choose the correct country</p>
+                <p>⏱️ You have 15 seconds per question</p>
+                <p>⚡ Faster answers give bonus points</p>
+                <p>🔥 Building streaks increases your score multiplier</p>
+                <p>💡 Use hints wisely - you only get 3!</p>
+            </div>
+        </div>
+
+        <!-- Typing Test Game -->
+        <div id="typing-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-keyboard"></i> Typing Speed Test</h2>
+            </div>
+            
+            <div class="typing-info">
+                <div class="typing-stats">
+                    <div class="stat-item">
+                        <span><i class="fas fa-tachometer-alt" style="color: #3498db;"></i> WPM: <span id="typing-wpm">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-bullseye" style="color: #27ae60;"></i> Accuracy: <span id="typing-accuracy">100%</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-clock" style="color: #e67e22;"></i> Time: <span id="typing-time">0s</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-trophy" style="color: #f1c40f;"></i> Best WPM: <span id="typing-best">0</span></span>
+                    </div>
+                </div>
+                <div class="typing-difficulty">
+                    <label for="typing-difficulty">Difficulty:</label>
+                    <select id="typing-difficulty">
+                        <option value="easy">Easy (30-40 words)</option>
+                        <option value="medium" selected>Medium (45-55 words)</option>
+                        <option value="hard">Hard (60-70 words)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="typing-game-area">
+                <div class="typing-text-container">
+                    <div id="typing-text" class="typing-text">
+                        Click "Start Test" to begin typing...
+                    </div>
+                </div>
+                
+                <div class="typing-input-container">
+                    <textarea 
+                        id="typing-input" 
+                        class="typing-input" 
+                        placeholder="Start typing here..."
+                        disabled
+                        spellcheck="false"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                    ></textarea>
+                </div>
+                
+                <div class="typing-progress">
+                    <div class="progress-bar">
+                        <div id="typing-progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>Progress: <span id="typing-progress-percent">0%</span></span>
+                        <span>Characters: <span id="typing-char-count">0</span>/<span id="typing-total-chars">0</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="typing-controls">
+                <button id="typing-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Test
+                </button>
+                <button id="typing-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> New Text
+                </button>
+                <button id="typing-restart" class="game-button secondary">
+                    <i class="fas fa-refresh"></i> Restart
+                </button>
+            </div>
+            
+            <div class="typing-results" id="typing-results" style="display: none;">
+                <h3><i class="fas fa-chart-line"></i> Test Results</h3>
+                <div class="results-grid">
+                    <div class="result-item">
+                        <span class="result-label">Words Per Minute (WPM)</span>
+                        <span class="result-value" id="final-wpm">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Accuracy</span>
+                        <span class="result-value" id="final-accuracy">100%</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Time Taken</span>
+                        <span class="result-value" id="final-time">0s</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Characters Typed</span>
+                        <span class="result-value" id="final-chars">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Correct Characters</span>
+                        <span class="result-value" id="final-correct">0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Wrong Characters</span>
+                        <span class="result-value" id="final-wrong">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="typing-instructions">
+                <p><strong>How to Play:</strong> Type the text shown above as accurately and quickly as possible</p>
+                <p><strong>Features:</strong> Real-time WPM calculation, accuracy tracking, and performance statistics</p>
+                <p><strong>Tips:</strong> Focus on accuracy first, then speed will naturally follow!</p>
+            </div>
+        </div>
+
+        <!-- Chess Game -->
+        <div id="chess-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-chess"></i> Chess Battle</h2>
+            </div>
+            
+            <div class="chess-info">
+                <div class="chess-stats">
+                    <div class="stat-item">
+                        <span><i class="fas fa-user" style="color: #f8f9fa;"></i> You (White): <span id="player-chess-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-robot" style="color: #2c3e50;"></i> AI (Black): <span id="ai-chess-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-handshake" style="color: #95a5a6;"></i> Draws: <span id="chess-draws">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-clock" style="color: #e67e22;"></i> Turn: <span id="chess-turn">White</span></span>
+                    </div>
+                </div>
+                <div class="chess-difficulty">
+                    <label for="chess-difficulty">AI Strength:</label>
+                    <select id="chess-difficulty">
+                        <option value="easy">Beginner (Depth 2)</option>
+                        <option value="medium" selected>Intermediate (Depth 3)</option>
+                        <option value="hard">Advanced (Depth 4)</option>
+                        <option value="expert">Expert (Depth 5)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="chess-game-area">
+                <div class="chess-board-container">
+                    <div class="chess-board" id="chess-board">
+                        <!-- Chess board will be generated dynamically -->
+                    </div>
+                </div>
+                
+                <div class="chess-sidebar">
+                    <div class="chess-status">
+                        <h3 id="chess-status-title">Game Ready</h3>
+                        <p id="chess-status-message">Click "New Game" to start playing!</p>
+                    </div>
+                    
+                    <div class="chess-captured">
+                        <div class="captured-pieces">
+                            <h4>Captured by You</h4>
+                            <div id="captured-by-white" class="captured-list"></div>
+                        </div>
+                        <div class="captured-pieces">
+                            <h4>Captured by AI</h4>
+                            <div id="captured-by-black" class="captured-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chess-controls">
+                <button id="chess-new-game" class="game-button">
+                    <i class="fas fa-play"></i> New Game
+                </button>
+                <button id="chess-undo" class="game-button secondary" disabled>
+                    <i class="fas fa-undo"></i> Undo Move
+                </button>
+                <button id="chess-hint" class="game-button secondary">
+                    <i class="fas fa-lightbulb"></i> Get Hint
+                </button>
+                <button id="chess-reset-scores" class="game-button secondary">
+                    <i class="fas fa-trophy"></i> Reset Scores
+                </button>
+            </div>
+            
+            <div class="chess-instructions">
+                <p><strong>How to Play:</strong> Click on a piece to select it, then click on a valid square to move</p>
+                <p><strong>Special Moves:</strong> Castling, en passant, and pawn promotion are supported</p>
+                <p><strong>Goal:</strong> Checkmate the AI king to win! The AI will try its best to beat you.</p>
+                <p><strong>Tips:</strong> Control the center, develop your pieces early, and keep your king safe!</p>
+            </div>
+        </div>
+
+        <!-- Flappy Bird Game -->
+        <div id="flappy-game" class="game-container">
+            <div class="game-header">
+                <h2><i class="fas fa-dove"></i> Flappy Bird</h2>
+            </div>
+            
+            <div class="flappy-info">
+                <div class="flappy-stats">
+                    <div class="stat-item">
+                        <span><i class="fas fa-trophy" style="color: #f1c40f;"></i> Score: <span id="flappy-score">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-star" style="color: #e67e22;"></i> Best: <span id="flappy-best">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <span><i class="fas fa-columns" style="color: #3498db;"></i> Pipes Passed: <span id="flappy-pipes">0</span></span>
+                    </div>
+                </div>
+                <div class="flappy-difficulty">
+                    <label for="flappy-difficulty">Difficulty:</label>
+                    <select id="flappy-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="flappy-canvas-container">
+                <canvas id="flappy-canvas" width="800" height="500"></canvas>
+                <div class="flappy-overlay" id="flappy-overlay">
+                    <div class="flappy-message" id="flappy-message">
+                        <div class="flappy-title">🐦 Flappy Bird 🐦</div>
+                        <div class="flappy-subtitle">Click or tap to flap!</div>
+                        <button id="flappy-start-btn" class="flappy-start-button">Start Flying</button>
+                    </div>
+                </div>
+                <div class="flappy-game-over" id="flappy-game-over" style="display: none;">
+                    <div class="game-over-content">
+                        <h2>🐦 Game Over! 🐦</h2>
+                        <div class="final-score">
+                            <div class="score-item">
+                                <span>Final Score</span>
+                                <span id="final-score-value">0</span>
+                            </div>
+                            <div class="score-item">
+                                <span>Pipes Passed</span>
+                                <span id="final-pipes-value">0</span>
+                            </div>
+                            <div class="score-item best-score" id="new-best" style="display: none;">
+                                <span>🎉 New Best Score! 🎉</span>
+                                <span id="new-best-value">0</span>
+                            </div>
+                        </div>
+                        <div class="game-over-buttons">
+                            <button id="flappy-restart-btn" class="flappy-button primary">
+                                <i class="fas fa-redo"></i> Play Again
+                            </button>
+                            <button id="flappy-menu-btn" class="flappy-button secondary">
+                                <i class="fas fa-home"></i> Main Menu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flappy-controls">
+                <button id="flappy-start" class="game-button">
+                    <i class="fas fa-play"></i> Start Game
+                </button>
+                <button id="flappy-pause" class="game-button secondary">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="flappy-reset" class="game-button secondary">
+                    <i class="fas fa-redo"></i> Reset Best Score
+                </button>
+            </div>
+            
+            <!-- Enhanced Mobile Touch Controls for Flappy Bird -->
+            <div class="mobile-controls flappy-mobile-controls" id="flappy-mobile-controls">
+                <div class="controls-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>Touch Controls</span>
+                </div>
+                <div class="flap-zone" id="flappy-tap-zone">
+                    <i class="fas fa-hand-pointer"></i>
+                    <div class="zone-text">TAP TO FLAP</div>
+                    <div class="zone-hint">Tap anywhere in this area</div>
+                </div>
+                <div class="controls-instructions">
+                    <h4>How to Play</h4>
+                    <ul>
+                        <li>Tap the screen to make the bird flap</li>
+                        <li>Navigate through pipe gaps</li>
+                        <li>Avoid hitting pipes or the ground</li>
+                        <li>Collect points for each pipe passed!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="flappy-instructions">
+                <p><strong>Controls:</strong> Click, tap, or press SPACE to make the bird flap its wings</p>
+                <p><strong>Goal:</strong> Navigate through as many pipes as possible without hitting them!</p>
+                <p><strong>Tips:</strong> Timing is everything - don't flap too much or too little!</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaderboard Section -->
+    <section id="leaderboard" class="leaderboard-section">
+        <div class="container">
+            <div class="leaderboard-header">
+                <h2><i class="fas fa-trophy"></i> Your Statistics</h2>
+                <p>Track your real-time gaming performance and achievements!</p>
+            </div>
+            
+            <div class="leaderboard-content">
+                <div class="personal-stats">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-gamepad"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="total-games-stat">0</div>
+                                <div class="stat-label">Total Games</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="total-wins-stat">0</div>
+                                <div class="stat-label">Total Wins</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-percentage"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="win-rate-stat">0%</div>
+                                <div class="stat-label">Win Rate</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="total-score-stat">0</div>
+                                <div class="stat-label">Total Score</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="game-stats">
+                        <h3>Game-Specific Stats</h3>
+                        <div class="game-stats-grid">
+                            <div class="game-stat-card">
+                                <div class="game-icon">
+                                    <i class="fas fa-th"></i>
+                                </div>
+                                <div class="game-info">
+                                    <div class="game-name">Tic Tac Toe</div>
+                                    <div class="game-record">
+                                        <span>Games: <span id="ttt-games">0</span></span>
+                                        <span>Wins: <span id="ttt-wins">0</span></span>
+                                        <span>Rate: <span id="ttt-rate">0%</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="game-stat-card">
+                                <div class="game-icon">
+                                    <i class="fas fa-chess"></i>
+                                </div>
+                                <div class="game-info">
+                                    <div class="game-name">Chess</div>
+                                    <div class="game-record">
+                                        <span>Games: <span id="chess-games">0</span></span>
+                                        <span>Wins: <span id="chess-wins">0</span></span>
+                                        <span>Rate: <span id="chess-rate">0%</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="game-stat-card">
+                                <div class="game-icon">
+                                    <i class="fas fa-gamepad"></i>
+                                </div>
+                                <div class="game-info">
+                                    <div class="game-name">Snake</div>
+                                    <div class="game-record">
+                                        <span>Games: <span id="snake-games">0</span></span>
+                                        <span>Best: <span id="snake-high">0</span></span>
+                                        <span>Avg: <span id="snake-avg">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="game-stat-card">
+                                <div class="game-icon">
+                                    <i class="fas fa-dove"></i>
+                                </div>
+                                <div class="game-info">
+                                    <div class="game-name">Flappy Bird</div>
+                                    <div class="game-record">
+                                        <span>Games: <span id="flappy-games">0</span></span>
+                                        <span>Best: <span id="flappy-high">0</span></span>
+                                        <span>Avg: <span id="flappy-avg">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer with Social Media -->
+    <footer class="main-footer">
+        <div class="footer-content">
+            <div class="footer-info">
+                <div class="footer-logo">
+                    <svg class="footer-logo-icon" width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="footerLogoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#ffd700;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="footerLogoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#b8860b;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="footerLogoGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#d4af37;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="32" cy="32" r="30" fill="url(#footerLogoGrad1)" stroke="#d4af37" stroke-width="2" opacity="0.9"/>
+                        <rect x="16" y="20" width="32" height="24" rx="4" fill="#2c3e50" stroke="#d4af37" stroke-width="1"/>
+                        <circle cx="24" cy="28" r="4" fill="url(#footerLogoGrad2)"/>
+                        <circle cx="40" cy="28" r="4" fill="url(#footerLogoGrad2)"/>
+                        <circle cx="24" cy="28" r="2" fill="#fff"/>
+                        <circle cx="40" cy="28" r="2" fill="#fff"/>
+                        <rect x="26" y="36" width="12" height="4" rx="2" fill="#d4af37"/>
+                        <line x1="32" y1="20" x2="32" y2="10" stroke="#d4af37" stroke-width="2"/>
+                        <circle cx="32" cy="8" r="3" fill="url(#footerLogoGrad3)"/>
+                        <circle cx="32" cy="8" r="5" fill="none" stroke="url(#footerLogoGrad3)" stroke-width="1" opacity="0.6"/>
+                    </svg>
+                    <span>AI Game Hub</span>
+                </div>
+                <p class="footer-description">Created with ❤️ by Somyadip Ghosh</p>
+                <p class="footer-tagline">Challenge yourself against intelligent AI opponents!</p>
+            </div>
+            
+            <div class="social-media-section">
+                <h3>Connect with the Developer</h3>
+                <div class="social-links">
+                    <a href="https://github.com/somyadipghosh" target="_blank" rel="noopener noreferrer" class="social-btn github-btn" title="GitHub Profile">
+                        <i class="fab fa-github"></i>
+                        <span>GitHub</span>
+                    </a>
+                    <a href="https://linkedin.com/in/somyadipghosh" target="_blank" rel="noopener noreferrer" class="social-btn linkedin-btn" title="LinkedIn Profile">
+                        <i class="fab fa-linkedin-in"></i>
+                        <span>LinkedIn</span>
+                    </a>
+                    <a href="https://x.com/somyadipghosh" target="_blank" rel="noopener noreferrer" class="social-btn twitter-btn" title="Twitter Profile">
+                        <i class="fab fa-twitter"></i>
+                        <span>Twitter</span>
+                    </a>
+                    <a href="https://instagram.com/somyadipghosh" target="_blank" rel="noopener noreferrer" class="social-btn instagram-btn" title="Instagram Profile">
+                        <i class="fab fa-instagram"></i>
+                        <span>Instagram</span>
+                    </a>
+                    <a href="mailto:somyadipghosh@gmail.com" class="social-btn email-btn" title="Send Email">
+                        <i class="fas fa-envelope"></i>
+                        <span>Email</span>
+                    </a>
+                    <a href="https://somyadip.me" target="_blank" rel="noopener noreferrer" class="social-btn website-btn" title="Personal Website">
+                        <i class="fas fa-globe"></i>
+                        <span>Portfolio</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="footer-bottom-content">
+                <p>&copy; 2025 AI Game Hub. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="https://github.com/somyadipghosh/Web-games" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-code"></i> View Source
+                    </a>
+                    <a href="https://github.com/somyadipghosh/Web-games/issues" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-bug"></i> Report Issue
+                    </a>
+                    <a href="https://github.com/somyadipghosh/Web-games/fork" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-code-branch"></i> Fork Project
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Device Warning System (Load First) -->
+    <script src="device-warning.js"></script>
+    
+    <!-- Main Game Scripts -->
+    <script src="stats-manager.js"></script>
+    <script src="snake-game.js"></script>
+    <script src="script.js"></script>
+    <script src="chess-game.js"></script>
+    <script src="mobile-controls.js"></script>
+</body>
+</html>
