@@ -1,0 +1,136 @@
+name: Meshy Ultimate Bypass v3
+on: workflow_dispatch
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Create Meshy account + Generate model
+        run: |
+          set -e
+          echo "=== MESHY ULTIMATE BYPASS v3 ==="
+
+          python3 << 'INNEREOF'
+          import requests, time, random, string, json, re, sys
+          requests.packages.urllib3.disable_warnings()
+
+          APIKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+
+          def random_pw():
+              return ''.join(random.choices(string.ascii_letters + string.digits + '!@#$%^&*', k=16))
+
+          dr = requests.get("https://api.mail.tm/domains?limit=1", timeout=10)
+          domain = dr.json()["hydra:member"][0]["domain"]
+
+          username = "mx" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+          email = f"{username}@{domain}"
+          password = random_pw()
+          print(f"Email: {email}")
+
+          requests.post("https://api.mail.tm/accounts",
+              headers={"Content-Type": "application/json"},
+              json={"address": email, "password": password}, timeout=10)
+
+          tr = requests.post("https://api.mail.tm/token",
+              headers={"Content-Type": "application/json"},
+              json={"address": email, "password": password}, timeout=10)
+          mail_token = tr.json()["token"]
+
+          sr = requests.post(
+              "https://auth.meshy.ai/auth/v1/signup",
+              headers={"apikey": APIKEY, "content-type": "application/json", "x-client-info": "supabase-js/2.39.0"},
+              json={"email": email, "password": password},
+              timeout=10
+          )
+          print(f"Signup: {sr.status_code}")
+
+          for i in range(36):
+              time.sleep(10)
+              mr = requests.get("https://api.mail.tm/messages",
+                  headers={"Authorization": f"Bearer {mail_token}"}, timeout=10)
+              members = mr.json().get("hydra:member", [])
+              if not isinstance(members, list):
+                  members = [members] if members else []
+
+              if members:
+                  msg_id = members[0].get("id", "")
+                  if msg_id:
+                      mr2 = requests.get(f"https://api.mail.tm/messages/{msg_id}",
+                          headers={"Authorization": f"Bearer {mail_token}"}, timeout=10).json()
+                      text_val = str(mr2.get("text", "") or "")
+                      html_val = str(mr2.get("html", "") or "")
+                      combined = text_val + html_val
+                      codes = re.findall(r"\b(\d{6,8})\b", combined)
+                      if codes:
+                          code = codes[0]
+                          print(f"Got code: {code}")
+
+                          vr = requests.post(
+                              "https://auth.meshy.ai/auth/v1/verify",
+                              headers={"apikey": APIKEY, "content-type": "application/json"},
+                              json={"type": "email", "email": email, "token": code},
+                              timeout=10
+                          )
+                          if vr.status_code == 200:
+                              vd = vr.json()
+                              access_token = vd.get("access_token", "")
+                              if access_token:
+                                  print(f"VERIFIED!")
+
+                                  kr = requests.post("https://api.meshy.ai/web/v1/apikeys",
+                                      headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                                      json={"name": f"gha-{int(time.time())}"},
+                                      timeout=10)
+                                  api_key = kr.json().get("result", "")
+                                  print(f"API KEY: {api_key}")
+
+                                  if api_key:
+                                      br = requests.get("https://api.meshy.ai/openapi/v1/balance",
+                                          headers={"Authorization": f"Bearer {api_key}", "X-Api-Version": "v2026.04.03.post7"},
+                                          timeout=10)
+                                      print(f"Balance: {br.text}")
+
+                                      gr = requests.post(
+                                          "https://api.meshy.ai/web/v2/tasks",
+                                          headers={"Authorization": f"Bearer {api_key}", "apikey": APIKEY,
+                                                   "Content-Type": "application/json", "origin": "https://www.meshy.ai"},
+                                          json={"phase": "draft",
+                                                "args": {"draft": {"prompt": "a cyberpunk warrior", "seed": random.randint(1,99999), "license": "cc-by-4.0", "aiModel": "meshy-5", "symmetryMode": 0}},
+                                                "isNSFW": False},
+                                          timeout=15
+                                      )
+                                  print(f"Gen: {gr.status_code} - {gr.text[:200]}")
+                                  tg = gr.json()
+                                  task_id = tg.get("result", "") or tg.get("taskId", "")
+
+                                  if task_id:
+                                      for j in range(90):
+                                          time.sleep(5)
+                                          pr = requests.get(f"https://api.meshy.ai/web/v2/tasks/{task_id}",
+                                              headers={"Authorization": f"Bearer {api_key}", "apikey": APIKEY,
+                                                       "origin": "https://www.meshy.ai"},
+                                              timeout=10)
+                                          pd = pr.json()
+                                          task_result = pd.get("result", {})
+                                          status = task_result.get("status", "")
+                                          print(f"[{j*5}s] Status: {status}")
+
+                                          if status == "SUCCEEDED":
+                                              draft_result = task_result.get("result", {}).get("draft", {})
+                                              frames = draft_result.get("frames", [])
+                                              print(f"SUCCESS! {len(frames)} frames")
+                                              for frame in frames:
+                                                  print(f"FRAME_URL={frame.get('url','')}")
+                                                  print(f"QUAD_URL={frame.get('quadJsonUrl','')}")
+                                              print(f"API_KEY={api_key}")
+                                              print(f"EMAIL={email}")
+                                              break
+                                          elif status == "FAILED":
+                                              print(f"FAILED: {task_result.get('errMsg','')}")
+                                              break
+                                  break
+              print(f"[{i*10}s] waiting...")
+          else:
+              print("NO CODE")
+              sys.exit(1)
+          INNEREOF
