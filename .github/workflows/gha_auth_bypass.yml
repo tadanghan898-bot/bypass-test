@@ -1,0 +1,71 @@
+name: Tripo3D Auth Bypass
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email for registration'
+        required: true
+        default: 'reserve_dev@test.com'
+      password:
+        description: 'Password'
+        required: true
+        default: 'TestPass123!'
+
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Register Tripo3D via Ory Kratos
+        run: |
+          set +e
+          
+          EMAIL="${{ inputs.email }}"
+          PASSWORD="${{ inputs.password }}"
+          
+          echo "=== Step 1: Get Registration Flow ==="
+          FLOW_RESP=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt \
+            -L "https://auth.tripo3d.ai/self-service/registration/flows")
+          echo "Flow response: $FLOW_RESP"
+          
+          echo ""
+          echo "=== Step 2: Check cookies ==="
+          cat cookies.txt 2>/dev/null || echo "No cookies"
+          
+          echo ""
+          echo "=== Step 3: Extract flow ID ==="
+          FLOW_ID=$(echo "$FLOW_RESP" | grep -o 'flow=[a-f0-9-]*' | head -1 | cut -d= -f2)
+          echo "Flow ID: $FLOW_ID"
+          
+          if [ -z "$FLOW_ID" ]; then
+            # Try to get from URL
+            FLOW_ID=$(echo "$FLOW_RESP" | grep -o 'self-service/registration?flow=[a-f0-9-]*' | head -1 | cut -d? -f2 | cut -d= -f2)
+            echo "Flow ID from URL: $FLOW_ID"
+          fi
+          
+          echo ""
+          echo "=== Step 4: Get Form Page ==="
+          if [ -n "$FLOW_ID" ]; then
+            FORM_RESP=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt \
+              "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            echo "Form response length: ${#FORM_RESP}"
+            
+            # Extract CSRF
+            CSRF=$(echo "$FORM_RESP" | grep -o 'csrf_token"[^>]*value="[^"]*"' | head -1 | grep -o 'value="[^"]*"' | cut -d'"' -f2)
+            echo "CSRF: $CSRF"
+            
+            echo ""
+            echo "=== Step 5: Submit Registration ==="
+            REG_RESP=$(curl -s --connect-timeout 15 -c cookies.txt -b cookies.txt -L \
+              -X POST \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "csrf_token=$CSRF&traits.email=$EMAIL&password=$PASSWORD&method=password&flow=$FLOW_ID" \
+              "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            echo "Registration response length: ${#REG_RESP}"
+            echo "Registration response: $REG_RESP"
+          fi
+          
+          echo ""
+          echo "=== Step 6: Check Sessions ==="
+          WHOAMI=$(curl -s --connect-timeout 10 -b cookies.txt \
+            "https://auth.tripo3d.ai/sessions/whoami")
+          echo "WhoAmI: $WHOAMI"
