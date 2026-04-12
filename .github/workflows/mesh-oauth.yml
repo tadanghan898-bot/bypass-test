@@ -1,0 +1,97 @@
+name: Meshy OAuth Test
+on:
+  push:
+    branches: [register]
+
+jobs:
+  oauth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: OAuth Flow
+        run: |
+          set -e
+          echo "=== Testing Google OAuth Flow ==="
+          
+          # Get the authorization URL
+          AUTH_URL="https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=https://www.meshy.ai"
+          echo "Auth URL: $AUTH_URL"
+          
+          # Follow the redirect chain to get Google OAuth URL
+          GOOGLE_AUTH=$(curl -s -L -o /dev/null -w "%{url_effective}" "$AUTH_URL")
+          echo "Google Auth URL: $GOOGLE_AUTH"
+          
+          # Check if playwright is available for browser automation
+          echo "=== Checking for browser automation ==="
+          which chromium || which chrome || which google-chrome || echo "No browser"
+          node -e "require('playwright')" 2>/dev/null && echo "Playwright OK" || echo "No Playwright"
+          node -e "require('puppeteer')" 2>/dev/null && echo "Puppeteer OK" || echo "No Puppeteer"
+          
+          # Try OTP with different email providers
+          echo "=== Testing mail.tm OTP ==="
+          DOMAIN=$(curl -s "https://api.mail.tm/domains" | python3 -c "import json,sys; print(json.load(sys.stdin)['hydra:member'][0]['domain'])")
+          echo "Available domain: $DOMAIN"
+          
+          # Check if Meshy blocks this domain
+          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          CODE=$(python3 -c "import hashlib,base64,os; d=os.urandom(32); print(base64.urlsafe_b64encode(hashlib.sha256(d).digest()).rstrip(b'=').decode())")
+          
+          EMAIL="mesh$(date +%s)@$DOMAIN"
+          echo "Testing: $EMAIL"
+          
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/otp" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "authorization: Bearer $SUPABASE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"create_user\":true,\"code_challenge\":\"$CODE\",\"code_challenge_method\":\"s256\"}" > /dev/null
+          
+          # Create mail account and check inbox
+          curl -s -X POST "https://api.mail.tm/accounts" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"$EMAIL\",\"password\":\"TestPass1!\"}" > /dev/null
+          
+          MT=$(curl -s -X POST "https://api.mail.tm/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"$EMAIL\",\"password\":\"TestPass1!\"}")
+          MT_TOKEN=$(echo "$MT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" 2>/dev/null)
+          echo "MT token: ${#MT_TOKEN} chars"
+          
+          if [ -n "$MT_TOKEN" ]; then
+            sleep 3
+            for i in $(seq 1 5); do
+              sleep 3
+              MSGS=$(curl -s "https://api.mail.tm/messages" -H "Authorization: Bearer $MT_TOKEN")
+              COUNT=$(echo "$MSGS" | python3 -c "import json,sys; print(len(json.load(sys.stdin).get('hydra-member',[])))" 2>/dev/null)
+              echo "Messages[$i]: $COUNT"
+              if [ "$COUNT" -gt 0 ]; then
+                echo "OTP received! Testing login..."
+                MSG_ID=$(echo "$MSGS" | python3 -c "import json,sys; print(json.load(sys.stdin)['hydra-member'][0]['id'])" 2>/dev/null)
+                HTML=$(curl -s "https://api.mail.tm/messages/$MSG_ID" -H "Authorization: Bearer $MT_TOKEN")
+                OTP=$(echo "$HTML" | grep -oE '[0-9]{4,8}' | head -1)
+                echo "OTP: $OTP"
+                
+                # Try verify
+                VERIFY=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/verify" \
+                  -H "apikey: $SUPABASE_KEY" \
+                  -H "authorization: Bearer $SUPABASE_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"type\":\"email\",\"email\":\"$EMAIL\",\"token\":\"$OTP\"}")
+                echo "Verify: $VERIFY"
+                
+                ACCESS=$(echo "$VERIFY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+                if [ -n "$ACCESS" ]; then
+                  echo "=== SUCCESS! ==="
+                  echo "Token: ${ACCESS:0:50}..."
+                  
+                  # Test API
+                  TASK=$(curl -s -X POST "https://api.meshy.ai/web/v2/tasks" \
+                    -H "Authorization: Bearer $ACCESS" \
+                    -H "Content-Type: application/json" \
+                    -H "origin: https://www.meshy.ai" \
+                    -d '{"phase":"draft","args":{"draft":{"prompt":"robot","aiModel":"meshy-5","seed":42}},"isNSFW":false}')
+                  echo "Task: $TASK"
+                fi
+                break
+              fi
+            done
+          fi
