@@ -1,0 +1,54 @@
+{
+    "editor": {
+        "selectionStyle": "line",
+        "highlightActiveLine": true,
+        "highlightSelectedWord": true,
+        "cursorStyle": "ace",
+        "behavioursEnabled": true,
+        "wrapBehavioursEnabled": true,
+        "hScrollBarAlwaysVisible": true,
+        "vScrollBarAlwaysVisible": true,
+        "highlightGutterLine": true,
+        "animatedScroll": true,
+        "showInvisibles": false,
+        "showPrintMargin": true,
+        "printMarginColumn": "renderer",
+        "printMargin": true,
+        "fadeFoldWidgets": false,
+        "showFoldWidgets": true,
+        "showLineNumbers": true,
+        "showGutter": true,
+        "displayIndentGuides": false,
+        "fontSize": 16,
+        "scrollPastEnd": false,
+        "theme": "ace/theme/tomorrow_night_eighties",
+        "firstLineNumber": 1,
+        "newLineMode": "auto",
+        "useSoftTabs": false,
+        "tabSize": 4,
+        "wrap": false
+    },
+
+    "shortcuts": {
+        "saveActiveTab": "mod+s",
+        "newFile": "mod+n",
+        "chooseFile": "mod+o",
+        "closeTab": "mod+w",
+        "renameNode": "f2",
+        "exit": "mod+q"
+    },
+
+    "ui": {
+        "slidePanelAnimation": true,
+        "slidePanelAnimationDuration": 350
+    },
+
+    "plugins": {
+        "cc.codebot.ide.web": true,
+        "cc.codebot.ide.web.dnd": true,
+        "cc.codebot.flash.tools": true,
+        "cc.codebot.javascript.tools": true,
+        "cc.codebot.asset.finder": true,
+        "cc.codebot.sound.central": true
+    }
+}

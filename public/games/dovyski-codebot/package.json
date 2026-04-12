@@ -1,0 +1,16 @@
+{
+  "name": "Codebot",
+  "version": "0.1",
+  "description": "An IDE focused on gamedev",
+  "main": "index.html",
+  "window": {
+    "width": 1200,
+    "height": 820,
+    "title": "Codebot",
+    "toolbar": false
+  },
+  "dependencies": {
+    "mocha": "^3.5.3",
+    "puppeteer": "^0.11.0"
+  }
+}
