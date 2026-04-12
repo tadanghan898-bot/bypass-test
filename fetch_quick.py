@@ -40,12 +40,9 @@ def gh(url, retries=3):
             err_str = str(e).lower()
             if '403' in err_str or 'rate limit' in err_str or '429' in err_str:
                 if attempt < retries - 1:
-                    wait = min((attempt + 1) * 60, 300)  # Exponential backoff: 60s, 120s, 180s... max 5min
-                    print(f"  Rate limited, retrying in {wait}s...")
+                    wait = (attempt + 1) * 10  # Short backoff: 10s, 20s, 30s
                     time.sleep(wait)
                     continue
-            if attempt == retries - 1:
-                pass  # Silent fail - don't spam logs
             return {}
     return {}
 
@@ -458,12 +455,8 @@ def fetch_one_game(repo, slug):
         best_score = 0
         best_path = ''
 
-        # Phase 1: Try priority paths with index.html / game.html / play.html
-        priority_files = [
-            'index.html', 'game.html', 'play.html', 'play/index.html',
-            'demo.html', 'demo/index.html', 'src/index.html',
-            'dist/index.html', 'build/index.html',
-        ]
+        # Try only the most common entry points first
+        priority_files = ['index.html', 'game.html', 'play.html', 'demo.html', 'src/index.html']
 
         for pf in priority_files:
             content, fp, sz = get_file(repo, pf)
@@ -473,36 +466,30 @@ def fetch_one_game(repo, slug):
                     best_score = score
                     best_content = content
                     best_path = fp
+            if best_score >= 8:  # High score = good game, skip rest
+                break
 
-        # Phase 2: If no good HTML found, scan tree for HTML files
+        # If no good HTML, scan tree for HTML files (shallow: 1 level)
         if best_score < 5:
-            all_files = get_dir_tree(repo, max_depth=2)
+            all_files = get_dir_tree(repo, max_depth=1)
             html_files = [
                 f for f in all_files
                 if f.get('name', '').endswith('.html')
                 or f.get('name', '').endswith('.htm')
             ]
-            # Sort by name preference: index, game, play first
+            # Sort: index, game, play first
             def html_sort_key(f):
                 n = f.get('name', '').lower()
-                if n == 'index.html':
-                    return 0
-                if n == 'game.html':
-                    return 1
-                if n == 'play.html':
-                    return 2
-                if n in ('index.htm', 'index.html'):
-                    return 3
-                return 4
-
+                if n == 'index.html': return 0
+                if n == 'game.html': return 1
+                if n == 'play.html': return 2
+                return 3
             html_files.sort(key=html_sort_key)
-            for f in html_files[:20]:
+            for f in html_files[:10]:
                 url = f.get('download_url')
-                if not url:
-                    continue
+                if not url: continue
                 content = curl(url)
-                if not content:
-                    continue
+                if not content: continue
                 fp = f.get('path', '')
                 score = score_html(content, fp)
                 if score > best_score:
@@ -513,19 +500,15 @@ def fetch_one_game(repo, slug):
         if not best_content or best_score < 5:
             return None
 
-        # Phase 3: Download the game directory
+        # Download the game directory (shallow)
         base = best_path.rsplit('/', 1)[0] if '/' in best_path else ''
-        if base:
-            dir_files = get_dir_tree(repo, base, max_depth=3)
-        else:
-            dir_files = get_dir_tree(repo, '', max_depth=2)
+        dir_files = get_dir_tree(repo, base, max_depth=2) if base else get_dir_tree(repo, '', max_depth=1)
 
-        # Filter to relevant game files (include images/audio/fonts, skip huge files)
+        # Filter to relevant game files
         game_files = []
         for f in dir_files:
             n = f.get('name', '').lower()
             ext = n.split('.')[-1] if '.' in n else ''
-            # Include: html, js, json, wasm, txt, md, audio, fonts, images
             if ext in {
                 '', 'html', 'htm', 'js', 'json', 'wasm', 'txt', 'md',
                 'mp3', 'ogg', 'wav', 'm4a', 'aac', 'flac',
