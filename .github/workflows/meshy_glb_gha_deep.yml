@@ -1,0 +1,136 @@
+name: meshy-deep-glb
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        default: '019d7d03-d9ee-7f32-a6cd-cae939cbc18d'
+        type: string
+      user_id:
+        default: '3686b630-c5af-4061-9c33-bb5cc44fd65b'
+        type: string
+
+jobs:
+  get-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get model URL via web/v1 API
+        run: |
+          TASK_ID="${{ inputs.task_id }}"
+          USER_ID="${{ inputs.user_id }}"
+          echo "=== Task: $TASK_ID ==="
+          echo "=== User: $USER_ID ==="
+
+          # Step 1: Get task info from web/v1 API
+          echo ""
+          echo "=== Getting web/v1 task info ==="
+          curl -s -X GET "https://api.meshy.ai/web/v1/tasks/$TASK_ID" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" > task_v1.json
+          cat task_v1.json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+r = d.get('result', {})
+result_data = r.get('result', {})
+model_url = result_data.get('modelUrl', '')
+print(f'modelUrl: {model_url[:200] if model_url else \"EMPTY\"}')
+print(f'previewUrl: {result_data.get(\"previewUrl\", \"\")[:200]}')
+print(f'quadJsonUrl: {result_data.get(\"quadJsonUrl\", \"\")[:200]}')
+print(f'isDownloaded: {r.get(\"isDownloaded\", False)}')
+print(f'status: {r.get(\"status\", \"\")}')
+if model_url:
+    with open('model_url.txt', 'w') as f:
+        f.write(model_url)
+"
+
+          # Step 2: Also get web/v2 task info for comparison
+          echo ""
+          echo "=== Getting web/v2 task info ==="
+          curl -s -X GET "https://api.meshy.ai/web/v2/tasks/$TASK_ID" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Version: v2026.04.03.post7" > task_v2.json
+          cat task_v2.json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+r = d.get('result', {})
+frames = r.get('result', {}).get('draft', {}).get('frames', [])
+print(f'Frames: {len(frames)}')
+for f in frames:
+    print(f'  Frame {f.get(\"id\")} URL: {f.get(\"url\", \"\")[:150]}')
+    print(f'  Frame {f.get(\"id\")} quadJson: {f.get(\"quadJsonUrl\", \"\")[:150]}')
+"
+
+      - name: Download model.glb directly
+        run: |
+          MODEL_URL=$(cat model_url.txt 2>/dev/null || echo "")
+          echo "=== Downloading model.glb ==="
+          echo "URL: $MODEL_URL"
+          echo ""
+          echo "Attempt 1: Direct curl with User-Agent"
+          curl -s -L -o model.glb \
+            -w "STATUS=%{http_code} SIZE=%{size_download} CONTENT_TYPE=%{content_type}\n" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -H "Origin: https://www.meshy.ai" \
+            -H "Referer: https://www.meshy.ai/" \
+            --max-time 30 \
+            "$MODEL_URL" || echo "curl failed"
+
+          echo ""
+          echo "=== File check ==="
+          ls -la model.glb 2>/dev/null || echo "FILE NOT CREATED"
+          file model.glb 2>/dev/null || echo "Cannot identify"
+          head -c 4 model.glb 2>/dev/null | od -A x -t x1z || echo "Cannot read hex"
+
+      - name: Try S3 origin directly
+        run: |
+          MODEL_URL=$(cat model_url.txt 2>/dev/null || echo "")
+          S3_URL=$(echo "$MODEL_URL" | sed 's|https://assets.meshy.ai|https://meshy-assets.s3.us-west-2.amazonaws.com|g')
+          echo "=== S3 Origin attempt ==="
+          echo "S3 URL: $S3_URL"
+          curl -s -L -o s3_attempt.glb \
+            -w "STATUS=%{http_code} SIZE=%{size_download}\n" \
+            --max-time 20 \
+            "$S3_URL" || echo "S3 curl failed"
+          head -c 4 s3_attempt.glb 2>/dev/null | od -A x -t x1z || echo "No hex"
+
+      - name: Analyze results
+        run: |
+          echo "=== Analysis ==="
+          # Check main GLB
+          MAGIC=$(head -c 4 model.glb 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+          echo "model.glb magic: $MAGIC"
+          if [ "$MAGIC" = "6674676c" ]; then
+            echo "*** SUCCESS! model.glb is valid GLB binary ***"
+            cp model.glb success_model.glb
+          elif [ "$MAGIC" = "3c3f786d" ]; then
+            echo "model.glb is XML (CloudFront blocked)"
+            cat model.glb | head -3
+          else
+            echo "model.glb format unknown"
+            head -c 100 model.glb | od -A x -t x1z
+          fi
+
+          # Check S3 attempt
+          MAGIC2=$(head -c 4 s3_attempt.glb 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+          echo "s3_attempt.glb magic: $MAGIC2"
+          if [ "$MAGIC2" = "6674676c" ]; then
+            echo "*** SUCCESS! s3_attempt.glb is valid GLB binary ***"
+            cp s3_attempt.glb success_model.glb
+          fi
+
+          # Upload artifact if successful
+          if [ -f success_model.glb ]; then
+            echo "Uploading successful model..."
+            cp success_model.glb model.glb
+          fi
+
+      - name: Upload GLB artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-glb-${{ inputs.task_id }}
+          path: model.glb
+          retention-days: 1
