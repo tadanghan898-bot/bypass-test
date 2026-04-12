@@ -1,5 +1,7 @@
 name: Ultimate Cloud Bypass Engine v3
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '*/5 * * * *'
