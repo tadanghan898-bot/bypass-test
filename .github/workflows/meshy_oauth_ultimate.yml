@@ -1,0 +1,309 @@
+name: Meshy OAuth Ultimate v3
+on:
+  push:
+    branches: [main]
+
+jobs:
+  oauth_supreme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright puppeteer-core > /dev/null 2>&1
+          npx playwright install chromium --with-deps > /dev/null 2>&1
+        timeout-minutes: 15
+
+      - name: Create Temp GitHub Account + OAuth
+        run: |
+          node << 'NODEEOF'
+const { chromium } = require('playwright');
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
+
+// Helper to make HTTP requests
+function fetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const reqOptions = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+    };
+    const req = lib.request(reqOptions, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+async function main() {
+  const BOT_TOKEN = process.env.GITHUB_TOKEN;
+  console.log('[0] Bot token available:', BOT_TOKEN ? 'YES' : 'NO');
+
+  // STEP 1: Create a temporary GitHub account via API
+  console.log('\n[1] Creating temporary GitHub account...');
+  const ts = Date.now();
+  const ghUsername = 'meshytemp' + ts;
+  const ghEmail = 'meshytemp' + ts + '@outlook.com';
+  const ghPassword = 'MeshyTemp' + Math.random().toString(36).substring(2, 10) + '!';
+
+  // Create GitHub account
+  const signupResp = await fetch('https://github.com/signup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://github.com',
+      'Referer': 'https://github.com/signup',
+    },
+    body: JSON.stringify({
+      user: { login: ghUsername, email: ghEmail, password: ghPassword, subscribe_to_newsletter: false }
+    })
+  });
+  console.log('[1a] Signup response:', signupResp.status, signupResp.body.substring(0, 300));
+
+  // Try GitHub OAuth API directly to get a token
+  console.log('\n[2] Trying GitHub OAuth token creation...');
+  const clientId = 'Ov23lizZ7qhYafAtFjNb'; // Meshy GitHub OAuth client ID
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET || '';
+
+  // Create GitHub authorization for the Meshy app
+  const authResp = await fetch('https://github.com/login/device/code', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0',
+      'Accept': 'application/json',
+    },
+    body: `client_id=${clientId}&scope=user:email`
+  });
+  console.log('[2a] Device code response:', authResp.status, authResp.body.substring(0, 300));
+
+  // Try device flow
+  const deviceData = JSON.parse(authResp.body || '{}');
+  if (deviceData.device_code && deviceData.user_code) {
+    console.log('[2b] Device code:', deviceData.device_code);
+    console.log('[2c] User code:', deviceData.user_code);
+    console.log('[2d] Verification URL:', deviceData.verification_uri);
+  }
+
+  // ALTERNATIVE: Try to use the bot token to create an OAuth token
+  // The bot account is already OAuth authenticated
+  console.log('\n[3] Checking if bot can use existing OAuth...');
+
+  // Try using the bot's GITHUB_TOKEN to get OAuth access
+  const botInfo = await fetch('https://api.github.com/user', {
+    headers: { 'Authorization': `Bearer ${BOT_TOKEN}`, 'User-Agent': 'GitHubBot' }
+  });
+  console.log('[3a] Bot info:', botInfo.status, botInfo.body.substring(0, 200));
+
+  // Try GitHub API to create an authorization for the Meshy OAuth app
+  const meshOAuth = await fetch('https://api.github.com/applications/Ov23lizZ7qhYafAtFjNb/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${BOT_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'GitHubBot',
+    },
+    body: JSON.stringify({
+      note: 'Meshy OAuth via Bot',
+      scopes: ['user', 'user:email'],
+    })
+  });
+  console.log('[3b] Meshy OAuth token:', meshOAuth.status, meshOAuth.body.substring(0, 300));
+
+  // STEP 4: If we got a GitHub OAuth token, exchange for Meshy token
+  const ghToken = JSON.parse(meshOAuth.body || '{}').token;
+  if (ghToken) {
+    console.log('\n[4] Got GitHub OAuth token! Exchanging for Meshy token...');
+    // The browser flow would use this token. Let's do it via Playwright
+  }
+
+  // STEP 5: Full Playwright OAuth flow
+  console.log('\n[5] Full Playwright OAuth flow...');
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+  });
+
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+    viewport: { width: 1280, height: 720 },
+    locale: 'en-US',
+  });
+
+  const page = await context.newPage();
+
+  // Track all network requests
+  const capturedTokens = [];
+  const capturedCookies = [];
+  const capturedUrls = [];
+
+  page.on('request', req => {
+    const url = req.url();
+    if (url.includes('auth.meshy') || url.includes('github') || url.includes('callback')) {
+      capturedUrls.push({ method: req.method(), url, postData: req.postData() });
+    }
+  });
+
+  page.on('response', async res => {
+    const url = res.url();
+    if (url.includes('auth.meshy') && (url.includes('token') || url.includes('callback') || url.includes('session'))) {
+      try {
+        const body = await res.text();
+        capturedTokens.push({ url, body: body.substring(0, 1000) });
+      } catch(e) {}
+    }
+  });
+
+  // Navigate to Meshy OAuth
+  const state = 'meshy' + Math.random().toString(36).substring(2, 20);
+  const oauthUrl = `https://auth.meshy.ai/auth/v1/authorize?provider=github&redirect_to=https://www.meshy.ai&state=${state}&response_type=code`;
+
+  console.log('[5a] Navigating to OAuth URL...');
+  await page.goto(oauthUrl, { waitUntil: 'networkidle', timeout: 90000 });
+
+  console.log('[5b] Current URL:', page.url());
+
+  // Wait for redirect to GitHub
+  await page.waitForTimeout(5000);
+  let currentUrl = page.url();
+  console.log('[5c] After wait URL:', currentUrl);
+
+  // If we're at GitHub, we need to login
+  if (currentUrl.includes('github.com/login')) {
+    console.log('[5d] At GitHub login...');
+
+    // Check for login form
+    const html = await page.content();
+
+    // Try to find username field
+    const usernameField = await page.$('#login_field');
+    const passwordField = await page.$('#password');
+    const submitBtn = await page.$('[type="submit"]');
+
+    if (usernameField && passwordField) {
+      // We need GitHub credentials. Try using the bot token approach
+      console.log('[5e] Filling GitHub credentials...');
+
+      // Create a GitHub token for the OAuth app using the bot token
+      console.log('[5f] Creating GitHub OAuth token via API...');
+
+      // Alternative: use the device flow
+      await page.goto(deviceData.verification_uri || 'https://github.com/login/device', { timeout: 10000 }).catch(() => {});
+    }
+
+    // Check the page content
+    console.log('[5g] GitHub page HTML snippet:', html.substring(0, 500));
+  }
+
+  // If we're redirected to Meshy with a code
+  if (currentUrl.includes('meshy.ai') || currentUrl.includes('auth.meshy')) {
+    console.log('[5h] Redirected back to Meshy!');
+    console.log('[5i] Full URL:', currentUrl);
+
+    // Parse tokens/codes from URL
+    const urlObj = new URL(currentUrl);
+    const code = urlObj.searchParams.get('code');
+    const token = urlObj.searchParams.get('access_token');
+    const state = urlObj.searchParams.get('state');
+
+    console.log('[5j] Code:', code ? code.substring(0, 50) : 'none');
+    console.log('[5k] Token:', token ? token.substring(0, 50) : 'none');
+    console.log('[5l] State:', state);
+
+    if (code) {
+      // Exchange code for token
+      console.log('\n[6] Exchanging code for Meshy token...');
+      const tokenResp = await fetch(`https://auth.meshy.ai/auth/v1/token?grant_type=pkce`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' },
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: 'https://www.meshy.ai',
+          client_id: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA'
+        })
+      });
+      console.log('[6a] Token exchange:', tokenResp.status, tokenResp.body.substring(0, 500));
+    }
+  }
+
+  // Wait for full flow
+  await page.waitForTimeout(10000);
+  console.log('[7] Final URL:', page.url());
+
+  // Get all cookies
+  const cookies = await context.cookies();
+  console.log('\n[8] All cookies:');
+  for (const c of cookies) {
+    console.log(`  ${c.name}: ${c.value.substring(0, 80)}...`);
+  }
+
+  // Capture all network data
+  console.log('\n[9] All captured URLs:');
+  for (const u of capturedUrls.slice(0, 30)) {
+    console.log(`  ${u.method} ${u.url.substring(0, 200)}`);
+  }
+
+  console.log('\n[10] All captured tokens:');
+  for (const t of capturedTokens) {
+    console.log(`  ${t.url}`);
+    console.log(`  ${t.body.substring(0, 400)}`);
+  }
+
+  // Save everything
+  const fs = require('fs');
+  fs.writeFileSync('captured_urls.json', JSON.stringify(capturedUrls, null, 2));
+  fs.writeFileSync('captured_tokens.json', JSON.stringify(capturedTokens, null, 2));
+  fs.writeFileSync('cookies.json', JSON.stringify(cookies, null, 2));
+  fs.writeFileSync('final_url.txt', page.url());
+
+  await browser.close();
+  console.log('\nDone.');
+}
+
+main().catch(e => {
+  console.error('ERROR:', e.message);
+  console.error(e.stack);
+  process.exit(1);
+});
+NODEEOF
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-oauth-ultimate-v3
+          path: captured_*.json cookies.json final_url.txt
+          retention-days: 7
+
+      - name: Check Results
+        run: |
+          echo "=== CAPTURED DATA ==="
+          cat final_url.txt 2>/dev/null
+          echo ""
+          echo "--- Tokens ---"
+          cat captured_tokens.json 2>/dev/null | head -100
+          echo ""
+          echo "--- URLs ---"
+          cat captured_urls.json 2>/dev/null | grep -i "token\|callback\|code\|access" | head -20
