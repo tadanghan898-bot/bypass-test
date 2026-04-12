@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-Quick targeted game fetcher - searches ~15-20 high-value queries to find
-200-500 game repos, then downloads them using smart path prioritization.
-Combines search + fetch in one pass, reuses logic from fetch.py.
+Quick targeted game fetcher - optimized for 2-hour GitHub Actions limit.
+Key optimizations:
+- Minimal search phase (top 10 queries only)
+- Concurrent downloads (10 workers)
+- Incremental commits every 30 min via git subprocess
+- Skip already-existing repos
 """
 import urllib.request
 import json
@@ -272,48 +275,17 @@ PRIORITY_PATHS = [
 # Each query targets a specific high-value category
 # =========================================================================
 SEARCH_QUERIES = [
-    # Category leaders - highest value, most likely to be real games
-    "2048 game javascript in:readme stars:>50",
-    "hextris javascript game in:readme stars:>10",
-    "phaser game javascript in:readme stars:>30",
-    "pixi.js game javascript in:readme stars:>30",
-    "three.js game javascript in:readme stars:>50",
-
-    # Classic arcade clones - well-defined, playable
+    # Top 10 highest-value queries - max coverage, min API calls
     "snake game javascript in:readme stars:>50",
     "tetris javascript game in:readme stars:>50",
     "pacman javascript game in:readme stars:>50",
-    "pong javascript game in:readme stars:>30",
-    "breakout javascript game in:readme stars:>30",
-    "flappy bird clone javascript in:readme stars:>30",
     "chess javascript game in:readme stars:>30",
+    "2048 game javascript in:readme stars:>30",
+    "flappy bird clone javascript in:readme stars:>30",
     "sudoku javascript game in:readme stars:>20",
     "mahjong javascript game in:readme stars:>20",
-    "solitaire javascript game in:readme stars:>20",
-
-    # Popular genres - broad coverage with high thresholds
-    "roguelike javascript game in:readme stars:>80",
-    "platformer javascript html5 game in:readme stars:>50",
-    "tower defense javascript game in:readme stars:>50",
-    "endless runner javascript game in:readme stars:>50",
-    "match3 game javascript in:readme stars:>50",
-    "racing game javascript in:readme stars:>30",
-
-    # Competitions - js13k / Ludum Dare entries are self-contained
-    "js13k game javascript in:readme stars:>30",
-    "ludum dare game javascript in:readme stars:>30",
-
-    # Browser-playable keywords
-    "playable javascript game in:readme stars:>30",
-    "browser game javascript arcade in:readme stars:>50",
-    "html5 canvas game javascript in:readme stars:>100",
-    "webgl game javascript in:readme stars:>50",
-
-    # Genres with good yield
-    "dungeon crawler javascript game in:readme stars:>30",
-    "rpg javascript game in:readme stars:>50",
-    "physics game javascript in:readme stars:>30",
-    "sand game javascript in:readme stars:>30",
+    "breakout javascript game in:readme stars:>30",
+    "pong javascript game in:readme stars:>30",
 ]
 
 
@@ -574,96 +546,129 @@ def main():
             all_repos[repo] = ('known', slug)
             seen.add(repo)
 
-    # Second: search queries in parallel (30/min rate limit, use 5 concurrent)
-    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} targeted queries (5 parallel)...")
-    CONCURRENT = 5
-    for batch_start in range(0, len(SEARCH_QUERIES), CONCURRENT):
-        batch = SEARCH_QUERIES[batch_start:batch_start + CONCURRENT]
-        with ThreadPoolExecutor(max_workers=CONCURRENT) as executor:
-            futures = {executor.submit(search_query, q): (batch_start + i, q) for i, q in enumerate(batch)}
-            for future in as_completed(futures):
-                idx, q = futures[future]
-                try:
-                    _, results, err = future.result()
-                    if err:
-                        print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... Error: {err}")
-                    else:
-                        count = 0
-                        for repo, slug in results:
-                            if repo not in seen:
-                                all_repos[repo] = ('search', slug)
-                                seen.add(repo)
-                                count += 1
-                        print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... -> {len(results)} found ({count} new, total: {len(all_repos)})")
-                except Exception as e:
-                    print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... Exception: {e}")
-        # Pause between batches to respect 30/min rate limit (5 searches/batch = 6 batches = ~72 sec total)
-        if batch_start + CONCURRENT < len(SEARCH_QUERIES):
-            time.sleep(2)
+    # Search queries (10 queries, sequential with small delay)
+    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} queries...")
+    for i, q in enumerate(SEARCH_QUERIES):
+        print(f"  [{i+1}/{len(SEARCH_QUERIES)}] {q[:55]}...", end='', flush=True)
+        _, results, err = search_query(q)
+        count = 0
+        if err:
+            print(f" Error: {err}")
+        else:
+            for repo, slug in results:
+                if repo not in seen:
+                    all_repos[repo] = ('search', slug)
+                    seen.add(repo)
+                    count += 1
+            print(f" -> {len(results)} found ({count} new, total: {len(all_repos)})")
+        time.sleep(0.5)
 
     print(f"\n=== TOTAL REPOS TO FETCH: {len(all_repos)} ===")
 
-    # Save repo list
-    repos_path = '/tmp/repos_quick.txt'
-    with open(repos_path, 'w') as f:
-        for repo, (source, slug) in sorted(all_repos.items()):
-            f.write(f"{repo}\t{slug}\t{source}\n")
-    print(f"Saved repo list to {repos_path}")
+    # ----------------------------------------------------------------
+    # STEP 3: Concurrent fetch with incremental commits
+    # ----------------------------------------------------------------
+    print(f"\n[PHASE 3] Fetching (10 concurrent workers)...")
 
-    # ----------------------------------------------------------------
-    # STEP 3: Fetch all games
-    # ----------------------------------------------------------------
-    print(f"\n[PHASE 3] Fetching all games...")
+    import subprocess, random
+
+    def do_commit(msg):
+        """Commit and push game files to main branch."""
+        try:
+            subprocess.run(['git', 'add', '--force', 'public/games/'],
+                         capture_output=True, text=True)
+            r = subprocess.run(['git', 'diff', '--cached', '--quiet'],
+                            capture_output=True, text=True)
+            if r.returncode != 0:
+                r2 = subprocess.run(['git', 'commit', '-m', msg],
+                                 capture_output=True, text=True)
+                if r2.returncode == 0:
+                    r3 = subprocess.run(['git', 'push', 'origin', 'main'],
+                                    capture_output=True, text=True)
+                    if r3.returncode == 0:
+                        print(f"\n[PUSH] {msg}")
+                        return True
+                    else:
+                        print(f"\n[PUSH FAILED] {r3.stderr[:200]}")
+                else:
+                    print(f"\n[COMMIT FAILED] {r2.stderr[:200]}")
+            else:
+                print(f"\n[NO CHANGES]")
+            return False
+        except Exception as e:
+            print(f"\n[COMMIT ERROR] {e}")
+            return False
+
+    def fetch_worker(repo_slug):
+        repo, slug = repo_slug
+        game_path = f"public/games/{slug}"
+        if os.path.isdir(game_path):
+            files = [f for f in os.listdir(game_path)
+                     if os.path.isfile(os.path.join(game_path, f))]
+            if len(files) >= 3:
+                return repo, slug, 'skip', None
+        result = fetch_one_game(repo, slug)
+        return repo, slug, 'ok' if result else 'fail', result
 
     OK = 0
     FAIL = 0
     SKIP = 0
-    TOTAL_FILES = 0
-    i = 0
-    total = len(all_repos)
+    start_time = time.time()
+    last_commit = start_time
+    COMMIT_INTERVAL = 30 * 60  # Commit every 30 min
 
-    for repo, (source, slug) in all_repos.items():
-        i += 1
-        print(f"\n[{i}/{total}] {repo}...", end='', flush=True)
+    repos_list = [(repo, data[1]) for repo, data in all_repos.items()]
+    random.shuffle(repos_list)
 
-        # Skip if already exists with content
-        game_path = f"{out_dir}/{slug}"
-        if os.path.isdir(game_path):
-            existing_files = [
-                f for f in os.listdir(game_path)
-                if os.path.isfile(os.path.join(game_path, f))
-            ]
-            if len(existing_files) >= 3:
-                print(f" SKIP (already exists: {len(existing_files)} files)")
-                SKIP += 1
-                continue
+    total = len(repos_list)
+    done = 0
 
-        result = fetch_one_game(repo, slug)
-        if result:
-            content, cat, downloaded, score = result
-            print(f" OK ({downloaded} files, score={score}, cat={cat})")
-            OK += 1
-            TOTAL_FILES += downloaded
-        else:
-            print(f" FAIL")
-            FAIL += 1
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {}
+        for repo, slug in repos_list:
+            f = executor.submit(fetch_worker, (repo, slug))
+            futures[f] = (repo, slug)
 
-        time.sleep(0.2)
+        for future in as_completed(futures):
+            repo, slug = futures[future]
+            done += 1
+            try:
+                _, _, status, result = future.result()
+                if status == 'skip':
+                    print(f"[{done}/{total}] {repo} SKIP")
+                    SKIP += 1
+                elif status == 'ok':
+                    _, cat, downloaded, score = result
+                    print(f"[{done}/{total}] {repo} OK ({downloaded}f, s={score})")
+                    OK += 1
+                else:
+                    print(f"[{done}/{total}] {repo} FAIL")
+                    FAIL += 1
+            except Exception as e:
+                print(f"[{done}/{total}] {repo} ERROR: {e}")
+                FAIL += 1
 
-    # ----------------------------------------------------------------
-    # SUMMARY
-    # ----------------------------------------------------------------
-    print("\n" + "=" * 60)
+            elapsed = time.time() - last_commit
+            if elapsed >= COMMIT_INTERVAL:
+                elapsed_total = int(time.time() - start_time)
+                msg = f"mega games v3 ({OK}ok {FAIL}fail {SKIP}skip, {elapsed_total}s)"
+                do_commit(msg)
+                last_commit = time.time()
+
+    elapsed_total = int(time.time() - start_time)
+    print(f"\n{'='*60}")
     print("FINAL RESULTS")
-    print("=" * 60)
+    print(f"{'='*60}")
     print(f"  OK:   {OK}")
     print(f"  FAIL: {FAIL}")
     print(f"  SKIP: {SKIP}")
-    print(f"  Total files downloaded: {TOTAL_FILES}")
-    print(f"  Total repos processed:  {i}")
-    print("=" * 60)
+    print(f"  Elapsed: {elapsed_total}s")
+    print(f"{'='*60}")
 
-    return OK, FAIL, SKIP, TOTAL_FILES
+    msg = f"mega games v3 ({OK}ok {FAIL}fail {SKIP}skip, {elapsed_total}s)"
+    do_commit(msg)
+
+    return OK, FAIL, SKIP, 0
 
 
 if __name__ == '__main__':
