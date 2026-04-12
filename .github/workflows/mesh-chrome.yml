@@ -1,0 +1,71 @@
+name: Meshy Chrome OAuth
+on:
+  push:
+    branches: [register]
+
+jobs:
+  chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Puppeteer
+        run: npm install puppeteer-core
+      
+      - name: OAuth with Chrome
+        run: |
+          set -e
+          echo "=== CHROME OAUTH ==="
+          
+          # Create a quick OAuth script
+          cat > /tmp/oauth.js << 'SCRIPT'
+          const puppeteer = require('puppeteer-core');
+          const https = require('https');
+          
+          async function main() {
+            const browser = await puppeteer.launch({
+              executablePath: '/usr/bin/chromium',
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+            
+            const page = await browser.newPage();
+            
+            // Navigate to Meshy Google OAuth
+            await page.goto('https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=https://www.meshy.ai', {
+              waitUntil: 'networkidle0',
+              timeout: 30000
+            });
+            
+            // Check current URL
+            const url = page.url();
+            console.log('Current URL:', url);
+            
+            // Check page content
+            const content = await page.content();
+            console.log('Has email field:', content.includes('email') || content.includes('signin'));
+            
+            await browser.close();
+            console.log('Done');
+          }
+          
+          main().catch(e => { console.error('Error:', e.message); process.exit(1); });
+          SCRIPT
+          
+          node /tmp/oauth.js || echo "Puppeteer failed"
+          
+          echo "=== Testing with Python + requests ==="
+          # Get the OAuth state parameter
+          STATE=$(curl -s -c /tmp/cookies.txt "https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=https://www.meshy.ai" -o /dev/null -w "%{url_effective}")
+          echo "Redirect to: $STATE"
+          
+          # Check what cookies were set
+          cat /tmp/cookies.txt
+          
+          echo "=== Checking for JWT token extraction ==="
+          # Try to extract tokens from page using chromium dump
+          chromium --headless --disable-gpu --dump-dom "https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=https://www.meshy.ai" 2>/dev/null | head -50
