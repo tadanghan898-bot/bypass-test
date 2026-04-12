@@ -1,0 +1,359 @@
+name: New 3D Services Deep Probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deep probe new 3D services
+        run: |
+          set +e
+
+          echo "============================================="
+          echo "3D AI STUDIO - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== 3D AI STUDIO ROOT ==="
+          curl -s --connect-timeout 10 "https://api.3daistudio.com/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.3daistudio.com/" 2>&1
+          echo ""
+
+          echo "=== 3D AI STUDIO DOCS ==="
+          curl -s --connect-timeout 10 "https://docs.3daistudio.com/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== 3D AI STUDIO DOCS CONTENT ==="
+          curl -s --connect-timeout 10 "https://docs.3daistudio.com/" 2>/dev/null | grep -oP '<a[^>]+href="[^"]*"' | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.3daistudio.com/" 2>/dev/null | grep -oE '("|\047)(/[a-zA-Z][^"\047]*)("|\047)' | sort -u | head -50
+          echo ""
+
+          echo "=== 3D AI STUDIO DOCS JS EXTRACTION ==="
+          for js in $(curl -s --connect-timeout 15 "https://docs.3daistudio.com/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://docs.3daistudio.com$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+          done
+          echo ""
+
+          echo "=== 3D AI STUDIO API PATHS ==="
+          for ep in "/v1" "/v1/" "/v2" "/v2/" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/scenes" "/v2/scenes" "/v1/mesh" "/v2/mesh" "/v1/texture" "/v2/texture" "/v1/create" "/v2/create" "/v1/text-to-3d" "/v2/text-to-3d" "/v1/image-to-3d" "/v2/image-to-3d" "/v1/3d" "/v2/3d" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/profile" "/v2/profile" "/v1/account" "/v2/account" "/v1/credits" "/v2/credits" "/v1/balance" "/v2/balance" "/v1/auth" "/v2/auth" "/v1/login" "/v2/login" "/v1/register" "/v2/register" "/v1/signup" "/v2/signup" "/v1/pricing" "/v2/pricing" "/v1/plans" "/v2/plans" "/v1/subscription" "/v2/subscription" "/v1/key" "/v2/key" "/v1/apikey" "/v2/apikey" "/v1/token" "/v2/token" "/v1/session" "/v2/session"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.3daistudio.com$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.3daistudio.com$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.3daistudio.com$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo "=== 3D AI STUDIO DOCS PATHS ==="
+          for ep in "/" "/introduction" "/getting-started" "/quickstart" "/quick-start" "/authentication" "/auth" "/api" "/api-reference" "/reference" "/guides" "/tutorials" "/sdks" "/sdk" "/examples" "/changelog" "/pricing" "/models" "/endpoints" "/openapi.json" "/openapi.yaml" "/swagger.json" "/swagger.yaml" "/api-spec.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.3daistudio.com$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "docs.3daistudio.com$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== 3D AI STUDIO MAIN SITE JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://www.3daistudio.com/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://www.3daistudio.com$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://www.3daistudio.com$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.3daistudio\.com[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "FAST3D - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== FAST3D ROOT ==="
+          curl -s --connect-timeout 10 "https://fast3d.ai/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://fast3d.ai/" 2>&1
+          echo ""
+
+          echo "=== FAST3D API ROOT ==="
+          curl -s --connect-timeout 10 "https://api.fast3d.ai/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.fast3d.ai/" 2>&1
+          echo ""
+
+          echo "=== FAST3D API PATHS ==="
+          for ep in "/v1" "/v2" "/v1/" "/v2/" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/scenes" "/v2/scenes" "/v1/mesh" "/v2/mesh" "/v1/texture" "/v2/texture" "/v1/create" "/v2/create" "/v1/text-to-3d" "/v2/text-to-3d" "/v1/image-to-3d" "/v2/image-to-3d" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/profile" "/v2/profile" "/v1/account" "/v2/account" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json" "/v1/swagger.json" "/v2/swagger.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.fast3d.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.fast3d.ai$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.fast3d.ai$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo "=== FAST3D DOCS ==="
+          for ep in "/" "/docs" "/docs/" "/api" "/api/" "/introduction" "/getting-started" "/quickstart" "/authentication" "/api-reference" "/reference" "/guides" "/tutorials" "/sdks" "/openapi.json" "/swagger.json" "/openapi.yaml" "/swagger.yaml"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://fast3d.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "fast3d.ai$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== FAST3D MAIN JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://fast3d.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://fast3d.ai$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://fast3d.ai$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.fast3d\.[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "HITEM - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== HITEM ROOT ==="
+          curl -s --connect-timeout 10 "https://hitem.ai/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://hitem.ai/" 2>&1
+          echo ""
+
+          echo "=== HITEM API ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.hitem.ai/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.hitem.ai/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== HITEM API PATHS ==="
+          for ep in "/v1" "/v2" "/v1/" "/v2/" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/scenes" "/v2/scenes" "/v1/mesh" "/v2/mesh" "/v1/texture" "/v2/texture" "/v1/create" "/v2/create" "/v1/text-to-3d" "/v2/text-to-3d" "/v1/image-to-3d" "/v2/image-to-3d" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/profile" "/v2/profile" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.hitem.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.hitem.ai$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.hitem.ai$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo "=== HITEM DOCS ==="
+          for ep in "/" "/docs" "/docs/" "/api" "/api/" "/introduction" "/getting-started" "/quickstart" "/authentication" "/api-reference" "/reference" "/guides" "/tutorials" "/sdks" "/openapi.json" "/swagger.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://hitem.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "hitem.ai$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== HITEM MAIN JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://hitem.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://hitem.ai$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://hitem.ai$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.hitem\.[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "SPLINE - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== SPLINE DOCS ==="
+          curl -s --connect-timeout 10 "https://docs.spline.design/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.spline.design/" 2>/dev/null | grep -oP '<a[^>]+href="[^"]*"' | head -30
+          echo ""
+
+          echo "=== SPLINE API ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.spline.design/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.spline.design/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== SPLINE API PATHS ==="
+          for ep in "/v1" "/v2" "/v3" "/v1/" "/v2/" "/v3/" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/scenes" "/v2/scenes" "/v1/3d" "/v2/3d" "/v1/objects" "/v2/objects" "/v1/export" "/v2/export" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json" "/v1/swagger.json" "/v2/swagger.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.spline.design$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.spline.design$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.spline.design$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo "=== SPLINE DOCS PATHS ==="
+          for ep in "/" "/introduction" "/getting-started" "/quickstart" "/authentication" "/auth" "/api-reference" "/reference" "/guides" "/tutorials" "/sdks" "/sdk" "/examples" "/changelog" "/pricing" "/models" "/endpoints" "/openapi.json" "/openapi.yaml" "/swagger.json" "/swagger.yaml"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.spline.design$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "docs.spline.design$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== SPLINE MAIN JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://spline.design/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://spline.design$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|/v3/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://spline.design$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.spline\.[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "POLYCAM - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== POLYCAM ROOT ==="
+          curl -s --connect-timeout 10 "https://poly.cam/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://poly.cam/" 2>&1
+          echo ""
+
+          echo "=== POLYCAM API ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.poly.cam/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.poly.cam/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== POLYCAM API PATHS ==="
+          for ep in "/v1" "/v2" "/v3" "/v1/" "/v2/" "/v3/" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/scans" "/v2/scans" "/v1/scan" "/v2/scan" "/v1/mesh" "/v2/mesh" "/v1/texture" "/v2/texture" "/v1/create" "/v2/create" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json" "/v1/swagger.json" "/v2/swagger.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.poly.cam$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.poly.cam$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.poly.cam$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo "=== POLYCAM DOCS ==="
+          for ep in "/" "/docs" "/docs/" "/api" "/api/" "/introduction" "/getting-started" "/quickstart" "/authentication" "/api-reference" "/reference" "/guides" "/tutorials" "/sdks" "/openapi.json" "/swagger.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://poly.cam$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "poly.cam$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== POLYCAM MAIN JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://poly.cam/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://poly.cam$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|/v3/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://poly.cam$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.poly\.cam[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "MESHCAPADE - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== MESHCAPADE ROOT ==="
+          curl -s --connect-timeout 10 "https://meshcapade.com/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://meshcapade.com/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.meshcapade.com/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.meshcapade.com/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== MESHCAPADE API PATHS ==="
+          for ep in "/v1" "/v2" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.meshcapade.com$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.meshcapade.com$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.meshcapade.com$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo ""
+          echo "=== MESHCAPADE MAIN JS ==="
+          for js in $(curl -s --connect-timeout 15 "https://meshcapade.com/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://meshcapade.com$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://meshcapade.com$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.meshcapade\.[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "============================================="
+          echo "ASSET-CREATION.COM - AGGRESSIVE API PROBE"
+          echo "============================================="
+          echo "=== ASSET-CREATION ROOT ==="
+          curl -s --connect-timeout 10 "https://asset-creation.com/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.asset-creation.com/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.asset-creation.com/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== ASSET-CREATION API PATHS ==="
+          for ep in "/v1" "/v2" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/user" "/v2/user" "/v1/auth" "/v2/auth" "/v1/openapi.json" "/v2/openapi.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.asset-creation.com$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.asset-creation.com$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.asset-creation.com$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "TRIPO3D API V2 OPENAPI REDIRECT TARGET"
+          echo "============================================="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://api.tripo3d.ai/v2/openapi" 2>&1
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/v2/openapi" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== TRIPO3D API DOCS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/docs" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/docs" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== TRIPO3D API ROOT JSON ==="
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/" -H "Accept: application/json" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/v2" -H "Accept: application/json" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== LUMA AI API V2 DEEP ==="
+          for ep in "/v1" "/v2" "/v1/" "/v2/" "/api" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/v1/captures" "/v2/captures" "/v1/scenes" "/v2/scenes" "/v1/openapi" "/v2/openapi" "/v1/swagger" "/v2/swagger" "/v1/docs" "/v2/docs" "/v1/api-docs" "/v2/api-docs" "/v1/reference" "/v2/reference" "/v1/health" "/v2/health" "/v1/openapi.json" "/v2/openapi.json" "/v1/user" "/v2/user" "/v1/auth" "/v2/auth" "/v1/me" "/v2/me" "/v1/account" "/v2/account"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.lumalabs.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.lumalabs.ai$ep -> $CODE"
+              if [ "$CODE" != "404" ]; then
+                RESP=$(curl -s --connect-timeout 5 "https://api.lumalabs.ai$ep" 2>/dev/null | head -5)
+                echo "  $RESP"
+              fi
+            fi
+          done
+
+          echo ""
+          echo "=== LUMA AI DOCS ==="
+          curl -s --connect-timeout 10 "https://docs.lumalabs.ai/" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.lumalabs.ai/" 2>/dev/null | grep -oP '<a[^>]+href="[^"]*"' | head -30
+          echo ""
+
+          echo "=== LUMA AI JS EXTRACTION ==="
+          for js in $(curl -s --connect-timeout 15 "https://lumalabs.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://lumalabs.ai$js" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run|baseURL|baseUrl)' | sort -u | head -30
+            curl -s --connect-timeout 15 "https://lumalabs.ai$js" 2>/dev/null | grep -oE 'https://[a-z.-]+\.lumalabs\.[^"'"'"' \)]*' | sort -u | head -20
+          done
+
+          echo ""
+          echo "=== NPM SEARCH FOR ALL 3D SERVICES ==="
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=3d+ai+studio&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=fast3d&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=spline3d&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=polycam&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=tripo3d&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=luma3d&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -20
