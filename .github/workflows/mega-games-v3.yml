@@ -1,0 +1,75 @@
+name: mega-games-v3
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: Debug mode (verbose output)
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  quick-fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    if: github.event_name == 'workflow_dispatch' || (github.event.commits[0].message && contains(github.event.commits[0].message, 'TRIGGER'))
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.name "tadanghan898-bot"
+          git config --global user.email "tadanghan898@gmail.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/tadanghan898-bot/bypass-test.git
+
+      - name: Prepare output directory
+        run: mkdir -p public/games server
+
+      - name: Check Python version
+        run: python3 --version
+
+      - name: Run quick targeted game fetcher
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 fetch_quick.py
+
+      - name: Count fetched games
+        run: |
+          TOTAL=$(find public/games -type f -name "*.html" | wc -l)
+          DIRS=$(find public/games -mindepth 1 -maxdepth 1 -type d | wc -l)
+          echo "HTML files: $TOTAL"
+          echo "Game directories: $DIRS"
+
+      - name: Regenerate games database
+        run: node regen_games_data.cjs
+
+      - name: Commit and push
+        if: always()
+        run: |
+          git pull --rebase origin main 2>/dev/null || true
+          git add --force public/games/
+          if ! git diff --cached --quiet; then
+            git commit -m "mega games v3 $(date -u +'%Y-%m-%d %H:%M:%S UTC')" && \
+            git push && echo "PUSHED" || echo "PUSH_FAILED"
+          else
+            echo "NO_CHANGES"
+          fi
+
+      - name: Show rate limit remaining
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/rate_limit | \
+            python3 -c "import sys,json; d=json.load(sys.stdin); print('Rate limit remaining:', d['resources']['search']['remaining'])"
