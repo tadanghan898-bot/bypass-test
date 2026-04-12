@@ -1,0 +1,19 @@
+name: Meshy Simple Test
+on:
+  push:
+    branches: [register]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Test
+        run: |
+          echo "Testing Meshy API..."
+          RESP=$(curl -s -X POST "https://api.meshy.ai/web/v2/tasks" \
+            -H "Authorization: Bearer test_key" \
+            -H "Content-Type: application/json" \
+            -d '{"phase":"draft","args":{"draft":{"prompt":"robot","aiModel":"meshy-5"}},"isNSFW":false}')
+          echo "Response: $RESP"
+          echo "Done"
