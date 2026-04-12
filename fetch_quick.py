@@ -10,6 +10,7 @@ import os
 import time
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 TOKEN = os.environ.get('GH_TOKEN', '')
 
@@ -45,6 +46,27 @@ def gh(url, retries=3):
                     continue
             return {}
     return {}
+
+
+def search_query(q):
+    """Search a single query, return list of (repo, slug) tuples."""
+    try:
+        data = gh(
+            f"https://api.github.com/search/repositories"
+            f"?q={q.replace(' ', '%20')}&per_page=30&sort=stars"
+        )
+        items = data.get('items', [])
+        results = []
+        for item in items:
+            repo = item['full_name']
+            name = item.get('name', '')
+            desc = item.get('description', '')
+            if is_framework_repo(name, desc):
+                continue
+            results.append((repo, make_slug(repo)))
+        return q, results, None
+    except Exception as e:
+        return q, [], str(e)
 
 
 def curl_raw(url):
@@ -552,32 +574,32 @@ def main():
             all_repos[repo] = ('known', slug)
             seen.add(repo)
 
-    # Second: search queries (deduplicated)
-    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} targeted queries...")
-    for i, q in enumerate(SEARCH_QUERIES):
-        print(f"  [{i+1}/{len(SEARCH_QUERIES)}] {q[:55]}...", end='', flush=True)
-        try:
-            data = gh(
-                f"https://api.github.com/search/repositories"
-                f"?q={q.replace(' ', '%20')}&per_page=30&sort=stars"
-            )
-            items = data.get('items', [])
-            count = 0
-            for item in items:
-                repo = item['full_name']
-                if repo not in seen:
-                    name = item.get('name', '')
-                    desc = item.get('description', '')
-                    if is_framework_repo(name, desc):
-                        continue
-                    all_repos[repo] = ('search', make_slug(repo))
-                    seen.add(repo)
-                    count += 1
-            print(f" -> {len(items)} found ({count} new, total: {len(all_repos)})")
-            time.sleep(1.2)  # Respect rate limits
-        except Exception as e:
-            print(f" Error: {e}")
-            time.sleep(3)
+    # Second: search queries in parallel (30/min rate limit, use 5 concurrent)
+    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} targeted queries (5 parallel)...")
+    CONCURRENT = 5
+    for batch_start in range(0, len(SEARCH_QUERIES), CONCURRENT):
+        batch = SEARCH_QUERIES[batch_start:batch_start + CONCURRENT]
+        with ThreadPoolExecutor(max_workers=CONCURRENT) as executor:
+            futures = {executor.submit(search_query, q): (batch_start + i, q) for i, q in enumerate(batch)}
+            for future in as_completed(futures):
+                idx, q = futures[future]
+                try:
+                    _, results, err = future.result()
+                    if err:
+                        print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... Error: {err}")
+                    else:
+                        count = 0
+                        for repo, slug in results:
+                            if repo not in seen:
+                                all_repos[repo] = ('search', slug)
+                                seen.add(repo)
+                                count += 1
+                        print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... -> {len(results)} found ({count} new, total: {len(all_repos)})")
+                except Exception as e:
+                    print(f"  [{idx+1}/{len(SEARCH_QUERIES)}] {q[:55]}... Exception: {e}")
+        # Pause between batches to respect 30/min rate limit (5 searches/batch = 6 batches = ~72 sec total)
+        if batch_start + CONCURRENT < len(SEARCH_QUERIES):
+            time.sleep(2)
 
     print(f"\n=== TOTAL REPOS TO FETCH: {len(all_repos)} ===")
 
