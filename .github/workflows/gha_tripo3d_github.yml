@@ -1,0 +1,116 @@
+name: Tripo3D GitHub RE
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tripo3D GitHub and API RE
+        run: |
+          set +e
+
+          echo "=== TRIPO3D GITHUB ORG ==="
+          curl -s --connect-timeout 10 "https://api.github.com/orgs/tripo3d" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== TRIPO3D GITHUB USER ==="
+          curl -s --connect-timeout 10 "https://api.github.com/users/tripo3d" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== TRIPO3D GITHUB REPOS ==="
+          curl -s --connect-timeout 15 "https://api.github.com/users/tripo3d/repos?per_page=100&sort=updated" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"full_name"|"html_url"|"description"|"clone_url"|"language"|"topics"' | head -60
+          echo ""
+
+          echo "=== TRIPO3D GITHUB REPOS V2 ==="
+          curl -s --connect-timeout 15 "https://api.github.com/users/Tripo3D/repos?per_page=100&sort=updated" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"full_name"|"html_url"|"description"|"clone_url"|"language"|"topics"' | head -60
+          echo ""
+
+          echo "=== TRIPO3D GITHUB SEARCH - CODE ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=tripo3d+api+filename:package.json+language:JavaScript" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"|"full_name"|"path"|"text_matches"' | head -30
+          echo ""
+
+          echo "=== TRIPO3D GITHUB SEARCH - REPOS ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/repositories?q=tripo3d+3d" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"|"full_name"|"description"|"html_url"' | head -30
+          echo ""
+
+          echo "=== TRIPO3D GITHUB API DOCS SEARCH ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=tripo3d+api+in:readme+OR+in:description" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"|"full_name"' | head -10
+          echo ""
+
+          echo "=== TRIPO3D GITHUB SDK SEARCH ==="
+          for q in "tripo3d+sdk" "tripo3d+javascript" "tripo3d+python" "tripo3d+node" "tripo3d+api+client"; do
+            COUNT=$(curl -s --connect-timeout 10 "https://api.github.com/search/repositories?q=$q" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -o '"total_count":[0-9]*' | head -1)
+            echo "$q: $COUNT"
+          done
+          echo ""
+
+          echo "=== API V2 OPENAPI REDIRECT FOLLOW ==="
+          curl -s --connect-timeout 10 -L -v "https://api.tripo3d.ai/v2/openapi" 2>&1 | grep -E "(< HTTP|< Location|< location)" | head -10
+          echo ""
+
+          echo "=== API V2 OPENAPI NO-FOLLOW VERBOSE ==="
+          curl -s --connect-timeout 10 -i "https://api.tripo3d.ai/v2/openapi" 2>&1 | head -20
+          echo ""
+
+          echo "=== API ROOT - GET WITH HEADERS ==="
+          curl -s --connect-timeout 10 -i "https://api.tripo3d.ai/" 2>&1 | head -20
+          echo ""
+
+          echo "=== API V2 - GET WITH HEADERS ==="
+          curl -s --connect-timeout 10 -i "https://api.tripo3d.ai/v2" 2>&1 | head -20
+          echo ""
+
+          echo "=== API V2 - GET JSON ==="
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/v2" -H "Accept: application/json" -H "Content-Type: application/json" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== API V2 ROOT - FOLLOW REDIRECT ==="
+          curl -s --connect-timeout 10 -L "https://api.tripo3d.ai/v2" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== TRIALS OF V2 PATHS WITH JSON ==="
+          for ep in "/v2/openapi" "/v2/docs" "/v2/api-docs" "/v2/reference" "/v2/swagger" "/v2/about" "/v2/info" "/v2/version" "/v2/capabilities" "/v2/features"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.tripo3d.ai$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== AUTH.TRIPO3D.AI SESSIONS WHOAMI ==="
+          curl -s --connect-timeout 10 "https://auth.tripo3d.ai/sessions/whoami" -H "Accept: application/json" 2>/dev/null
+          echo ""
+
+          echo "=== AUTH.TRIPO3D.AI IDP CHECK ==="
+          curl -s --connect-timeout 10 -X POST "https://auth.tripo3d.ai/idp-ext/auth/check-identifier" -H "Content-Type: application/json" -d '{"identifier":"test@tripo3d.ai"}' 2>/dev/null
+          echo ""
+
+          echo "=== TRIPO3D GITHUB TRIAL3D REPOS ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/repositories?q=tripo3d" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"full_name"|"description"|"html_url"' | head -40
+          echo ""
+
+          echo "=== TRIPO3D GITHUB SDK PACKAGE SEARCH ==="
+          for q in "@tripo3d/sdk" "tripo3d-sdk" "tripo3d-api" "tripo3d-client" "tripo3d-node" "tripo3d-js" "tripo3d-py" "tripo3d-python"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://www.npmjs.com/package/$q" 2>&1)
+            if [ "$CODE" != "404" ]; then
+              echo "npm $q -> $CODE"
+            fi
+          done
+          echo ""
+
+          echo "=== TRIPO3D GITHUB EXPLORE API ==="
+          curl -s --connect-timeout 10 "https://api.github.com/repos/tripo3d/api" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://api.github.com/repos/tripo3d/sdk" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | head -30
+          echo ""
+          curl -s --connect-timeout 10 "https://api.github.com/repos/tripo3d/tripo3d-api" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== NPM SEARCH TRIAL3D ==="
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=tripo3d&size=10" 2>/dev/null | grep -oE '"name"|"version"|"description"' | head -30
+          echo ""
+
+          echo "=== PYP I SEARCH TRIAL3D ==="
+          curl -s --connect-timeout 10 "https://pypi.org/search/?q=tripo3d" 2>/dev/null | grep -oE 'tripo3d|Tripo3D' | head -10
+          echo ""
