@@ -615,13 +615,15 @@ def main():
     SKIP = 0
     start_time = time.time()
     last_commit = start_time
-    COMMIT_INTERVAL = 30 * 60  # Commit every 30 min
+    COMMIT_INTERVAL = 5 * 60   # Commit every 5 min (saves progress if cancelled)
+    COMMIT_EVERY = 20          # OR commit every 20 repos processed
 
     repos_list = [(repo, data[1]) for repo, data in all_repos.items()]
     random.shuffle(repos_list)
 
     total = len(repos_list)
     done = 0
+    since_commit = 0
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {}
@@ -632,6 +634,7 @@ def main():
         for future in as_completed(futures):
             repo, slug = futures[future]
             done += 1
+            since_commit += 1
             try:
                 _, _, status, result = future.result()
                 if status == 'skip':
@@ -648,12 +651,15 @@ def main():
                 print(f"[{done}/{total}] {repo} ERROR: {e}")
                 FAIL += 1
 
+            # Commit if 5 min elapsed OR 20 repos processed
             elapsed = time.time() - last_commit
-            if elapsed >= COMMIT_INTERVAL:
+            if elapsed >= COMMIT_INTERVAL or since_commit >= COMMIT_EVERY:
                 elapsed_total = int(time.time() - start_time)
                 msg = f"mega games v3 ({OK}ok {FAIL}fail {SKIP}skip, {elapsed_total}s)"
                 do_commit(msg)
                 last_commit = time.time()
+                since_commit = 0
+                print(f"  >>> Checkpoint: {OK}ok {FAIL}fail {SKIP}skip ({elapsed_total}s elapsed)", flush=True)
 
     elapsed_total = int(time.time() - start_time)
     print(f"\n{'='*60}")
