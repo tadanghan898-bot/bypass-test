@@ -57,10 +57,10 @@ jobs:
         if: always()
         run: |
           git pull --rebase origin main 2>/dev/null || true
-          git add --force public/games/
+          git add --force public/games/ server/games_data.js
           if ! git diff --cached --quiet; then
             git commit -m "mega games v3 $(date -u +'%Y-%m-%d %H:%M:%S UTC')" && \
-            git push && echo "PUSHED" || echo "PUSH_FAILED"
+            git push origin HEAD:main && echo "PUSHED" || echo "PUSH_FAILED"
           else
             echo "NO_CHANGES"
           fi
