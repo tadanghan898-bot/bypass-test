@@ -1,0 +1,281 @@
+name: All 3D Services Deep Probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deep probe all 3D services
+        run: |
+          set +e
+          SHELL="/bin/bash"
+
+          echo "============================================="
+          echo "TRIPO3D - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "studio." "api." "auth." "app." "www." "dev." "developers." "status." "help." "blog." "cdn." "assets." "static."; do
+            for domain in "tripo3d.ai" "tripo3d.com" "tripo3d.io"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi            done
+          done
+
+          echo ""
+          echo "=== Tripo3D API docs redirect ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/v2/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/api/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/api/v2/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/reference/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/api-reference/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/quickstart/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.tripo3d.ai/getting-started/" 2>&1
+
+          echo ""
+          echo "=== Tripo3D API v2 deep ==="
+          for ep in "/v2" "/v2/" "/v2/tasks" "/v2/tasks/" "/v2/models" "/v2/models/" "/v2/scenes" "/v2/generate" "/v2/generate/" "/v2/create" "/v2/create/" "/v2/submit" "/v2/submit/" "/v2/sessions" "/v2/auth" "/v2/me" "/v2/profile" "/v2/account" "/v2/credits" "/v2/quota" "/v2/usage" "/v2/openapi" "/v2/openapi.json" "/v2/openapi.yaml" "/v2/swagger" "/v2/api-docs" "/v2/docs" "/v2/doc" "/v2/documentation"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai$ep" 2>&1)
+            echo "api.tripo3d.ai$ep -> $CODE"
+          done
+
+          echo ""
+          echo "=== Tripo3D studio JS extraction ==="
+          INDEX=$(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null)
+          if [ -n "$INDEX" ]; then
+            for js in $(echo "$INDEX" | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+              echo "JS: $js"
+              curl -s --connect-timeout 15 "https://studio.tripo3d.ai$js" 2>/dev/null | grep -oE 'https://[a-z.]+\.tripo3d\.ai[^"'"'"' \)]*' | sort -u
+              curl -s --timeout 15 "https://studio.tripo3d.ai$js" 2>/dev/null | grep -oE '/(v1|v2|v3)/[a-zA-Z0-9/_.-]+' | sort -u
+            done
+          fi
+
+          echo ""
+          echo "============================================="
+          echo "RODIN AI - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev." "studio." "app." "dashboard." "console."; do
+            for domain in "rodin.ai" "rodinvisualeditor.com" "rodin.ai"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "=== Rodin AI homepage content ==="
+          curl -s --connect-timeout 10 "https://rodin.ai/" 2>/dev/null | grep -oP '(href|src)="[^"]*"' | grep -oP '"[^"]+"' | sort -u | head -30
+
+          echo ""
+          echo "=== Rodin AI JS extraction ==="
+          INDEX=$(curl -s --connect-timeout 10 "https://rodin.ai/" 2>/dev/null)
+          for js in $(echo "$INDEX" | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://rodin.ai$js" 2>/dev/null | grep -oE 'https://[a-z.]+\.rodin\.[^"'"'"' \)]*' | sort -u
+            curl -s --timeout 15 "https://rodin.ai$js" 2>/dev/null | grep -oE '/(v1|v2|v3|api)/[a-zA-Z0-9/_.-]+' | sort -u
+          done
+
+          echo ""
+          echo "=== Rodin AI API docs ==="
+          for path in "/" "/docs" "/docs/" "/api" "/api/" "/developers" "/docs/api" "/docs/getting-started" "/docs/quickstart" "/docs/authentication" "/openapi.json" "/swagger.json" "/api-spec.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.rodin.ai$path" 2>&1)
+            echo "docs.rodin.ai$path -> $CODE"
+          done
+
+          echo ""
+          echo "=== Rodin AI API endpoints ==="
+          for ep in "/v1" "/v1/" "/v1/models" "/v1/generate" "/v1/tasks" "/v1/scenes" "/v1/textures" "/v1/mesh" "/v1/3d" "/v2" "/v2/" "/api" "/api/" "/api/v1" "/api/v2"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.rodin.ai$ep" 2>&1)
+            echo "api.rodin.ai$ep -> $CODE"
+          done
+
+          echo ""
+          echo "============================================="
+          echo "3D AI STUDIO - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev." "studio." "app." "dashboard."; do
+            for domain in "3daistudio.com" "3dai.studio" "3dai-studio.com" "3d-ai-studio.com" "3dai-studio.ai" "3daistudio.ai"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "============================================="
+          echo "FAST3D - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev."; do
+            for domain in "fast3d.ai" "fast3d.com" "fast3d.io" "fast3d.tech"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "============================================="
+          echo "HITEM - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev."; do
+            for domain in "hitem.ai" "hiteam.ai" "hi-te-m.com" "hitem.io" "hitem3d.ai"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "============================================="
+          echo "SPLINE - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev."; do
+            for domain in "spline.design" "spline.so" "spline3d.com" "spline-3d.com" "splinedesign.com"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "=== Spline API ==="
+          for ep in "/api" "/api/" "/api/v1" "/api/v2" "/api/v3" "/api/models" "/api/generate" "/api/3d" "/v1" "/v2" "/rest" "/rest/v1" "/public" "/openapi" "/swagger" "/api-docs"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.spline.design$ep" 2>&1)
+            echo "api.spline.design$ep -> $CODE"
+          done
+
+          echo ""
+          echo "=== Spline JS extraction ==="
+          INDEX=$(curl -s --connect-timeout 10 "https://spline.design/" 2>/dev/null)
+          for js in $(echo "$INDEX" | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://spline.design$js" 2>/dev/null | grep -oE 'https://[a-z.]+\.spline\.[^"'"'"' \)]*' | sort -u
+            curl -s --timeout 15 "https://spline.design$js" 2>/dev/null | grep -oE '/(v1|v2|v3|api)/[a-zA-Z0-9/_.-]+' | sort -u
+          done
+
+          echo ""
+          echo "============================================="
+          echo "POLYCAM - ALL POSSIBLE DOCS/SUBDOMAINS"
+          echo "============================================="
+          for sub in "" "docs." "api." "app." "www." "dev."; do
+            for domain in "poly.cam" "polycam.com" "polycam.io" "poly.cam"; do
+              URL="https://${sub}${domain}/"
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "$URL" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "$URL -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "=== Polycam API ==="
+          for ep in "/api" "/api/" "/api/v1" "/api/v2" "/v1" "/v2" "/rest" "/openapi" "/swagger" "/api-docs" "/api/models" "/api/generate" "/api/3d" "/api/scan" "/api/scans"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.poly.cam$ep" 2>&1)
+            echo "api.poly.cam$ep -> $CODE"
+          done
+
+          echo ""
+          echo "============================================="
+          echo "LUMA LABS - ALL API ENDPOINTS"
+          echo "============================================="
+          for ep in "/v1" "/v2" "/api" "/api/v1" "/api/v2" "/models" "/scenes" "/captures" "/generations" "/tasks" "/generate" "/create" "/openapi" "/swagger" "/api-docs" "/docs" "/documentation" "/reference"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.lumalabs.ai$ep" 2>&1)
+            echo "api.lumalabs.ai$ep -> $CODE"
+          done
+
+          echo ""
+          echo "=== Luma AI API docs ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.lumalabs.ai/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://lumalabs.ai/api" 2>&1
+
+          echo ""
+          echo "=== Luma JS extraction ==="
+          INDEX=$(curl -s --connect-timeout 10 "https://lumalabs.ai/" 2>/dev/null)
+          for js in $(echo "$INDEX" | grep -oP '"[^"]+\.js"' | tr -d '"' | head -10); do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://lumalabs.ai$js" 2>/dev/null | grep -oE 'https://[a-z.]+\.lumalabs\.[^"'"'"' \)]*' | sort -u
+            curl -s --timeout 15 "https://lumalabs.ai$js" 2>/dev/null | grep -oE '/(v1|v2|v3|api)/[a-zA-Z0-9/_.-]+' | sort -u
+          done
+
+          echo ""
+          echo "============================================="
+          echo "STABILITY AI - ALL API ENDPOINTS"
+          echo "============================================="
+          for ep in "/v1" "/v2" "/api" "/api/v1" "/api/v2" "/models" "/generation" "/generations" "/tasks" "/user" "/balance" "/account" "/openapi" "/swagger" "/api-docs" "/docs"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.stability.ai$ep" 2>&1)
+            echo "api.stability.ai$ep -> $CODE"
+          done
+
+          echo ""
+          echo "=== Stability docs ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://docs.stability.ai/" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://platform.stability.ai/" 2>&1
+
+          echo ""
+          echo "============================================="
+          echo "REPLICATE - ALL API ENDPOINTS"
+          echo "============================================="
+          for ep in "/v1" "/v2" "/api" "/api/v1" "/models" "/predictions" "/collections" "/collections/" "/deployments" "/account" "/openapi" "/swagger" "/api-docs" "/docs" "/api-docs"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.replicate.com$ep" 2>&1)
+            echo "api.replicate.com$ep -> $CODE"
+          done
+
+          echo ""
+          echo "=== Replicate docs ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://replicate.com/docs" 2>&1
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code} -> %{url_effective}\n" "https://replicate.com/api" 2>&1
+
+          echo ""
+          echo "============================================="
+          echo "SHAP-E - HF SPACES PROBE"
+          echo "============================================="
+          for space in "ashawkey/shape-e" "openai/shap-e" "diffusers/shape-e" "cadcoder/shape-e" "hysts/shape-e"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://huggingface.co/spaces/$space" 2>&1)
+            echo "HF $space -> $CODE"
+          done
+
+          echo ""
+          echo "=== Shap-E Space API extraction ==="
+          curl -s --connect-timeout 15 "https://huggingface.co/spaces/openai/shap-e" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -5 | while read js; do
+            echo "JS: $js"
+            curl -s --connect-timeout 15 "https://huggingface.co/spaces/openai/shap-e/$js" 2>/dev/null | grep -oE '(api|endpoint|generation|model|3d|mesh|glb|obj|create|submit|run)' | sort -u
+          done
+
+          echo ""
+          echo "============================================="
+          echo "TRELLIS - HF SPACES PROBE"
+          echo "============================================="
+          for space in "microsoft/TRELLIS-image-large" "gqk/TRELLIS-image-large-fork" "yyfz233/Pi3X" "stabilityai/TripoSR"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://huggingface.co/spaces/$space" 2>&1)
+            echo "HF $space -> $CODE"
+          done
+
+          echo ""
+          echo "=== TripoSR Space API ==="
+          TRIPO_URL=$(curl -s --connect-timeout 10 "https://huggingface.co/spaces/stabilityai/TripoSR" 2>/dev/null | grep -oP '"[^"]+gradio[^"]+\.js"' | head -1 | tr -d '"')
+          if [ -n "$TRIPO_URL" ]; then
+            echo "TripoSR js: $TRIPO_URL"
+          fi
+
+          echo ""
+          echo "============================================="
+          echo "SCANNING FOR NEW 3D SERVICES"
+          echo "============================================="
+          for service in "meshy.ai" "tripo3d.ai" "lumalabs.ai" "kaedim.io" "asset-creation.com" "csminteractive.com" "make3d.ai" "授之以渔3d.ai" "nvisium.com" "deep3d.io" "meshcapade.com" "radard.io" "zmo.ai" "cadrical.ai" "mirabyte.com" "iconic.ai" "pixyz.com" "runtimeverification.com" "sim4c.com"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://$service/" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "$service -> $CODE"
+            fi
+          done
