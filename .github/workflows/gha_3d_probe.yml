@@ -1,0 +1,36 @@
+name: 3D Service Probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test all 3D services
+        run: |
+          echo '=== Tripo3D ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.tripo3d.ai/v2/openapi/models
+          echo
+          curl -s https://auth.tripo3d.ai/.well-known/jwks.json | head -c 100
+          echo
+          echo '=== Rodin AI ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.rodin.ai
+          echo
+          echo '=== Polycam ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.polycam.io
+          echo
+          echo '=== Spline ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.spline.design
+          echo
+          echo '=== Fast3D ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.fast3d.ai
+          echo
+          echo '=== HiTeM ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.hitem.ai
+          echo
+          echo '=== 3D AI Studio ==='
+          curl -s -o /dev/null -w '%{http_code}' https://api.3dai-studio.com
+          echo
+          echo '=== app.tripo3d ==='
+          curl -s -o /dev/null -w '%{http_code}' https://app.tripo3d.ai
+          echo
