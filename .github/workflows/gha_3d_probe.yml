@@ -1,4 +1,4 @@
-name: 3D Service Probe
+name: 3D Service Deep Probe
 on:
   workflow_dispatch:
 
@@ -6,31 +6,52 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Test all 3D services
+      - name: Probe all 3D services
         run: |
-          echo '=== Tripo3D ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.tripo3d.ai/v2/openapi/models
-          echo
-          curl -s https://auth.tripo3d.ai/.well-known/jwks.json | head -c 100
-          echo
-          echo '=== Rodin AI ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.rodin.ai
-          echo
-          echo '=== Polycam ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.polycam.io
-          echo
-          echo '=== Spline ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.spline.design
-          echo
-          echo '=== Fast3D ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.fast3d.ai
-          echo
-          echo '=== HiTeM ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.hitem.ai
-          echo
-          echo '=== 3D AI Studio ==='
-          curl -s -o /dev/null -w '%{http_code}' https://api.3dai-studio.com
-          echo
-          echo '=== app.tripo3d ==='
-          curl -s -o /dev/null -w '%{http_code}' https://app.tripo3d.ai
-          echo
+          echo '=== SERVICE STATUS FROM US AZURE ==='
+          for service in \
+            "Tripo3D API:https://api.tripo3d.ai/v2/openapi/models" \
+            "Tripo3D Auth:https://auth.tripo3d.ai/.well-known/jwks.json" \
+            "Tripo3D App:https://app.tripo3d.ai" \
+            "Tripo3D Pricing:https://tripo3d.ai/pricing" \
+            "Rodin AI API:https://api.rodin.ai" \
+            "Rodin Homepage:https://www.rodin.ai" \
+            "Polycam API:https://api.polycam.io" \
+            "Polycam:https://poly.cam" \
+            "Spline API:https://api.spline.design" \
+            "Spline App:https://app.spline.design" \
+            "Fast3D API:https://api.fast3d.ai" \
+            "HiTeM API:https://api.hitem.ai" \
+            "3D AI Studio:https://api.3dai-studio.com"
+          do
+            name="${service%%:*}"
+            url="${service#*:}"
+            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "$url" 2>/dev/null)
+            echo "$name: $code"
+          done
+          
+          echo ''
+          echo '=== Tripo3D Auth Deep ==='
+          curl -s -o /dev/null -w 'check-identifier: %{http_code}\n' --connect-timeout 5 -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"identifier":"test@test.com"}' \
+            'https://auth.tripo3d.ai/idp-ext/auth/check-identifier' 2>/dev/null
+          
+          curl -s -o /dev/null -w 'registration-flow: %{http_code}\n' --connect-timeout 5 \
+            'https://auth.tripo3d.ai/self-service/registration/flows' 2>/dev/null
+          
+          curl -s -o /dev/null -w 'login-flow: %{http_code}\n' --connect-timeout 5 \
+            'https://auth.tripo3d.ai/self-service/login/flows' 2>/dev/null
+          
+          echo ''
+          echo '=== Tripo3D API v2 ==='
+          curl -s -w '\nHTTP: %{http_code}\n' --connect-timeout 5 \
+            -H 'Authorization: Bearer test' \
+            'https://api.tripo3d.ai/v2/openapi/models' 2>/dev/null | head -3
+          
+          echo ''
+          echo '=== Tripo3D Try Other Paths ==='
+          for path in /v1 /v1/models /v1/tasks /rest/v1 /api/v1 /api/v2/openapi/models /openapi.json /docs; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "https://api.tripo3d.ai$path" 2>/dev/null)
+            echo "  $path: $code"
+          done
