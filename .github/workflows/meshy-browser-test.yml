@@ -1,35 +1,38 @@
-name: Meshy Browser OAuth Teston: workflow_dispatchjobs:
+name: Meshy Browser OAuth Test
+on: workflow_dispatch
+
+jobs:
   browser-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-    - name: Install Puppeteer Core
-       run: |
+          
+      - name: Install Puppeteer Core
+        run: |
           npm install puppeteer-core
           echo "=== Chromium check ==="
           which chromium || which chromium-browser || which google-chrome
           ls -la /usr/bin/chrom* 2>/dev/null || echo "none in /usr/bin"
           ls -la /usr/bin/google* 2>/dev/null || echo "none google"
           chromium --version 2>/dev/null || echo "no version"
-
-    - name: Test Puppeteer
+          
+      - name: Test Puppeteer
         run: |
           node -e "
-            const puppeteer = require('puppeteer-core');
-            puppeteer.launch({
-              executablePath: '/usr/bin/chromium',
-              headless: true,
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            }).then(b => { console.log('Browser OK'); b.close(); }).catch(e => console.error('ERR:', e.message))
+          const puppeteer = require('puppeteer-core');
+          puppeteer.launch({
+            executablePath: '/usr/bin/chromium',
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+          }).then(b => { console.log('Browser OK'); b.close(); }).catch(e => console.error('ERR:', e.message));
           "
-
-    - name: OAuth Flow Test
+          
+      - name: OAuth Flow Test
         run: |
           node << 'SCRIPT'
           const puppeteer = require('puppeteer-core');
@@ -37,14 +40,14 @@ name: Meshy Browser OAuth Teston: workflow_dispatchjobs:
             const browser = await puppeteer.launch({
               executablePath: '/usr/bin/chromium',
               headless: true,
-              args: ['--no-sandbox', '--disable-setuid-sandboz', '--disable-dev-shm-usage']
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
             });
             const page = await browser.newPage();
 
             await page.goto('https://auth.meshy.ai/auth/v1/authorize?provider=google&redirect_to=https://www.meshy.ai', {
               waitUntil: 'networkidle2', timeout: 30000
             });
-            console.log('URL', page.url());
+            console.log('URL:', page.url());
             console.log('Title:', await page.title());
 
             // Look for Google sign-in
@@ -62,7 +65,7 @@ name: Meshy Browser OAuth Teston: workflow_dispatchjobs:
 
     - name: Test Selenium
         run: |
-          pip3\install selenium 2>&1 | tail -3
+          pip3 install selenium 2>&1 | tail -3
           python3 << 'PY'
           from selenium import webdriver
           from selenium.webdriver.chrome.options import Options
