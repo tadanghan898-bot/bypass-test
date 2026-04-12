@@ -1,0 +1,40 @@
+name: Meshy Key Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Meshy API Key
+        run: |
+          echo "Testing Meshy API key..."
+          curl -s --connect-timeout 10 "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "X-Api-Version: v2026.04.03.post7" | head -3
+          
+          echo ""
+          echo "Testing text-to-3d..."
+          RESP=$(curl -s --connect-timeout 10 "https://api.meshy.ai/openapi/v1/text-to-3d" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d '{"mode":"preview","prompt":"a robot arm","ai_model":"meshy-6","moderation":false}')
+          echo "$RESP"
+          
+          TASK_ID=$(echo "$RESP" | grep -oE '"result":"[^"]+"' | head -1 | cut -d'"' -f4)
+          echo "TASK_ID=$TASK_ID"
+          
+          if [ -n "$TASK_ID" ]; then
+            echo "Checking task status..."
+            curl -s --connect-timeout 10 "https://api.meshy.ai/openapi/v1/text-to-3d/$TASK_ID" \
+              -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+              -H "X-Api-Version: v2026.04.03.post7" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print('Status:', d.get('status'), 'Progress:', d.get('progress','N/A'))
+if d.get('result'):
+    print('Model URL:', d['result'].get('modelUrl','N/A'))
+    print('Preview frames:', len(d['result'].get('previewFrames',[])))
+"
+          fi
