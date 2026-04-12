@@ -583,7 +583,7 @@ def main():
                 r2 = subprocess.run(['git', 'commit', '-m', msg],
                                  capture_output=True, text=True)
                 if r2.returncode == 0:
-                    r3 = subprocess.run(['git', 'push', 'origin', 'main'],
+                    r3 = subprocess.run(['git', 'push', 'origin', 'HEAD:main'],
                                     capture_output=True, text=True)
                     if r3.returncode == 0:
                         print(f"\n[PUSH] {msg}")
