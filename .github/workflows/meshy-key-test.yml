@@ -1,0 +1,49 @@
+name: Meshy Key Test
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Meshy API
+        run: |
+          echo "=== MESHY KEY TEST ==="
+          KEY="${{ secrets.MESHY_MSY_KEY }}"
+          echo "Key length: ${#KEY}"
+          if [ -z "$KEY" ]; then echo "NO KEY"; exit 1; fi
+          
+          echo "=== Balance Check ==="
+          curl -s "https://api.meshy.ai/openapi/v1/balance" \
+            -H "Authorization: Bearer $KEY" \
+            -H "X-Api-Version: v2026.04.03.post7"
+          
+          echo ""
+          echo "=== Text-to-3D ==="
+          RESP=$(curl -s "https://api.meshy.ai/openapi/v1/text-to-3d" \
+            -H "Authorization: Bearer $KEY" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d '{"mode":"preview","prompt":"a robot arm","ai_model":"meshy-6","moderation":false}')
+          echo "$RESP"
+          
+          TASK=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('result',''))" 2>/dev/null)
+          echo "TASK_ID=$TASK"
+          
+          if [ -n "$TASK" ]; then
+            sleep 15
+            echo "=== Check Status ==="
+            curl -s "https://api.meshy.ai/openapi/v1/text-to-3d/$TASK" \
+              -H "Authorization: Bearer $KEY" \
+              -H "X-Api-Version: v2026.04.03.post7" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print('Status:', d.get('status'))
+print('Progress:', d.get('progress','N/A'))
+r=d.get('result',{})
+if r:
+    print('Model URL:', r.get('modelUrl','N/A'))
+    print('Frames:', len(r.get('previewFrames',[])))
+    print('Thumbnails:', len(r.get('thumbnails',[])))
+"
+          fi
