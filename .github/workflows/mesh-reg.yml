@@ -1,0 +1,77 @@
+name: Meshy Register
+on: [push, workflow_dispatch]
+
+jobs:
+  reg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Register Meshy
+        run: |
+          set -e
+          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          
+          DOMAIN=$(curl -s "https://api.mail.tm/domains" | python3 -c "import json,sys; print(json.load(sys.stdin)['hydra:member'][0]['domain'])")
+          echo "Domain: $DOMAIN"
+          
+          EMAIL="mesh$(date +%s)@$DOMAIN"
+          PASS="MeshyPass123!"
+          echo "Email: $EMAIL"
+          
+          curl -s -X POST "https://api.mail.tm/accounts" -H "Content-Type: application/json" \
+            -d "{\"address\":\"$EMAIL\",\"password\":\"$PASS\"}" > /dev/null
+          
+          MT=$(curl -s -X POST "https://api.mail.tm/token" -H "Content-Type: application/json" \
+            -d "{\"address\":\"$EMAIL\",\"password\":\"$PASS\"}")
+          MT_TOKEN=$(echo "$MT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" 2>/dev/null)
+          echo "MT_TOKEN: ${#MT_TOKEN} chars"
+          
+          if [ -z "$MT_TOKEN" ]; then echo "FAIL: no MT token"; exit 1; fi
+          
+          CODE=$(python3 -c "import hashlib,base64,os; d=os.urandom(32); print(base64.urlsafe_b64encode(hashlib.sha256(d).digest()).rstrip(b'=').decode())")
+          
+          echo "Sending OTP..."
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/otp" \
+            -H "apikey: $SUPABASE_KEY" -H "authorization: Bearer $SUPABASE_KEY" \
+            -H "Content-Type: application/json" -H "origin: https://www.meshy.ai" \
+            -d "{\"email\":\"$EMAIL\",\"create_user\":true,\"code_challenge\":\"$CODE\",\"code_challenge_method\":\"s256\"}" > /dev/null
+          
+          echo "Waiting for OTP..."
+          for i in $(seq 1 12); do
+            sleep 5
+            MSG=$(curl -s "https://api.mail.tm/messages" -H "Authorization: Bearer $MT_TOKEN")
+            MSG_ID=$(echo "$MSG" | python3 -c "import json,sys; d=json.load(sys.stdin); m=d.get('hydra-member',[]); print(m[0]['id'] if m else '')" 2>/dev/null)
+            if [ -n "$MSG_ID" ]; then
+              HTML=$(curl -s "https://api.mail.tm/messages/$MSG_ID" -H "Authorization: Bearer $MT_TOKEN")
+              OTP=$(echo "$HTML" | grep -oE '[0-9]{4,8}' | head -1)
+              if [ -n "$OTP" ]; then echo "OTP: $OTP"; break; fi
+            fi
+            echo "Wait $i/12"
+          done
+          
+          if [ -z "$OTP" ]; then echo "FAIL: no OTP"; exit 1; fi
+          
+          echo "Verifying..."
+          VERIFY=$(curl -s -X POST "https://auth.meshy.ai/auth/v1/verify" \
+            -H "apikey: $SUPABASE_KEY" -H "authorization: Bearer $SUPABASE_KEY" \
+            -H "Content-Type: application/json" -H "origin: https://www.meshy.ai" \
+            -d "{\"type\":\"email\",\"email\":\"$EMAIL\",\"token\":\"$OTP\"}")
+          echo "Verify: $VERIFY"
+          
+          ACCESS=$(echo "$VERIFY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+          if [ -n "$ACCESS" ]; then
+            echo "=== SUCCESS! ==="
+            echo "EMAIL=$EMAIL" >> $GITHUB_ENV
+            echo "ACCESS_TOKEN=$ACCESS" >> $GITHUB_ENV
+            echo "Token: ${ACCESS:0:50}..."
+            
+            echo "Testing API..."
+            TASK=$(curl -s -X POST "https://api.meshy.ai/web/v2/tasks" \
+              -H "Authorization: Bearer $ACCESS" -H "Content-Type: application/json" \
+              -H "origin: https://www.meshy.ai" \
+              -d '{"phase":"draft","args":{"draft":{"prompt":"robot","aiModel":"meshy-5","seed":42,"license":"cc-by-4.0","symmetryMode":0}},"isNSFW":false}')
+            echo "Task: $TASK"
+          else
+            echo "FAIL: no access token"
+            exit 1
+          fi
