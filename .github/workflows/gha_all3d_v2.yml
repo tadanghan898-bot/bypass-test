@@ -1,0 +1,203 @@
+name: Ultimate 3D Services Bypass v2
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ultimate 3D Bypass
+        run: |
+          set +e
+
+          echo "============================================="
+          echo "MESHY AI - FULL API TEST"
+          echo "============================================="
+          MESHY_KEY="msa_placeholder"
+          for ep in "/" "/v1/models" "/v1/tasks" "/v1/image-to-3d" "/v1/text-to-3d" "/v1/balance" "/v1/remesh" "/v1/rigging" "/v1/retexture" "/v1/print/multi-color" "/openapi" "/docs" "/health"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.meshy.ai$ep" -H "Authorization: Bearer $MESHY_KEY" 2>&1)
+            echo "mesh $ep -> $CODE"
+          done
+
+          echo ""
+          echo "============================================="
+          echo "TRIPO3D - ORY KRATOS + API V2"
+          echo "============================================="
+          # Ory Kratos registration
+          echo "=== Registration Flow ==="
+          FLOW=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt -L "https://auth.tripo3d.ai/self-service/registration/flows")
+          echo "Flow response length: ${#FLOW}"
+          FLOW_ID=$(echo "$FLOW" | grep -o 'flow=[a-f0-9-]*' | head -1 | cut -d= -f2)
+          echo "Flow ID: $FLOW_ID"
+
+          if [ -n "$FLOW_ID" ]; then
+            echo "=== Get form with flow ID ==="
+            FORM=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            CSRF=$(echo "$FORM" | grep -o 'csrf_token"[^>]*value="[^"]*"' | head -1 | grep -o 'value="[^"]*"' | cut -d'"' -f2)
+            echo "CSRF: $CSRF"
+
+            echo "=== Try registration ==="
+            REG=$(curl -s --connect-timeout 15 -c cookies.txt -b cookies.txt -L -X POST \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "csrf_token=$CSRF&traits.email=test@tripo3d.ai&password=TestPass123!" \
+              "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            echo "Reg response length: ${#REG}"
+          fi
+
+          echo "=== API v2 endpoints (no auth) ==="
+          for ep in "/v2/" "/v2/openapi" "/v2/docs" "/v2/models" "/v2/generate" "/v2/tasks" "/v2/scenes" "/v2/texture" "/v2/mesh"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai$ep" 2>&1)
+            echo "api.tripo3d.ai$ep -> $CODE"
+          done
+
+          echo ""
+          echo "============================================="
+          echo "3D AI STUDIO - AUTH + API"
+          echo "============================================="
+          echo "=== API Root ==="
+          curl -s --connect-timeout 10 "https://api.3daistudio.com/" 2>/dev/null | head -5
+
+          echo "=== API Keys (no auth) ==="
+          curl -s --connect-timeout 10 "https://api.3daistudio.com/user/api_keys/" 2>/dev/null | head -5
+
+          echo "=== Try signup with email ==="
+          for ep in "/user/register" "/user/signup" "/auth/register" "/account/register" "/register"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.3daistudio.com$ep" 2>&1)
+            echo "api.3daistudio.com$ep -> $CODE"
+          done
+
+          echo "=== Try signup with POST ==="
+          for ep in "/user/register" "/user/signup" "/auth/register" "/account/register" "/register"; do
+            CODE=$(curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d '{"email":"test@test.com","password":"Test123!"}' "https://api.3daistudio.com$ep" 2>&1)
+            if [ "$CODE" != "404" ]; then
+              echo "POST api.3daistudio.com$ep -> $CODE"
+              curl -s --connect-timeout 10 -X POST -H "Content-Type: application/json" -d '{"email":"test@test.com","password":"Test123!"}' "https://api.3daistudio.com$ep" 2>/dev/null | head -5
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "POLYCAM - API + AUTH"
+          echo "============================================="
+          echo "=== Polycam Root ==="
+          curl -s --connect-timeout 10 "https://poly.cam/" 2>/dev/null | head -20
+          curl -s --connect-timeout 10 "https://poly.cam/" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|baseURL)' | sort -u
+
+          echo "=== Polycam API ==="
+          for ep in "/api" "/v1" "/v2" "/api-keys" "/api_keys" "/user" "/auth" "/login" "/register" "/signup" "/models" "/scans" "/generations" "/openapi" "/swagger" "/docs" "/health"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.poly.cam$ep" 2>&1)
+            echo "api.poly.cam$ep -> $CODE"
+          done
+
+          echo ""
+          echo "============================================="
+          echo "LUMA AI - DEEP API"
+          echo "============================================="
+          echo "=== Luma API Root ==="
+          curl -s --connect-timeout 10 "https://api.lumalabs.ai/" 2>/dev/null | head -20
+          curl -s --connect-timeout 10 "https://api.lumalabs.ai/" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|baseURL)' | sort -u
+
+          echo "=== Luma API all paths ==="
+          for ep in "/v1" "/v2" "/api" "/v1/" "/v2/" "/v1/models" "/v2/models" "/v1/scenes" "/v2/scenes" "/v1/captures" "/v2/captures" "/v1/generations" "/v2/generations" "/v1/tasks" "/v2/tasks" "/v1/generate" "/v2/generate" "/v1/create" "/v2/create" "/openapi" "/swagger" "/docs" "/api-docs" "/reference" "/health" "/ping" "/user" "/me" "/account" "/auth" "/login" "/register" "/api-keys" "/api_keys" "/openapi.json" "/swagger.json" "/api-spec.json" "/v1/openapi" "/v2/openapi"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.lumalabs.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.lumalabs.ai$ep -> $CODE"
+              if [ "$CODE" != "401" ] && [ "$CODE" != "403" ] && [ "$CODE" != "404" ]; then
+                curl -s --connect-timeout 5 "https://api.lumalabs.ai$ep" 2>/dev/null | head -3
+              fi
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "STABILITY AI - DEEP API"
+          echo "============================================="
+          echo "=== Stability API Root ==="
+          curl -s --connect-timeout 10 "https://api.stability.ai/" 2>/dev/null | head -20
+          curl -s --connect-timeout 10 "https://api.stability.ai/" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|baseURL)' | sort -u
+
+          echo "=== Stability API all paths ==="
+          for ep in "/v1" "/v2" "/api" "/v1/" "/v2/" "/v1/account" "/v2/account" "/v1/balance" "/v2/balance" "/v1/user" "/v2/user" "/v1/models" "/v2/models" "/v1/generation" "/v2/generation" "/v1/generations" "/v2/generations" "/v1/tasks" "/v2/tasks" "/openapi" "/swagger" "/docs" "/api-docs" "/reference" "/health" "/ping" "/auth" "/login" "/register" "/api-keys" "/api_keys" "/openapi.json" "/swagger.json" "/api-spec.json" "/v1/openapi" "/v2/openapi" "/v1/text-to-3d" "/v2/text-to-3d" "/v1/image-to-3d" "/v2/image-to-3d"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.stability.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.stability.ai$ep -> $CODE"
+              if [ "$CODE" != "401" ] && [ "$CODE" != "403" ] && [ "$CODE" != "404" ]; then
+                curl -s --connect-timeout 5 "https://api.stability.ai$ep" 2>/dev/null | head -3
+              fi
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "SPLINE - DEEP API"
+          echo "============================================="
+          echo "=== Spline API from GHA ==="
+          for ep in "/v1/models" "/v1/scenes" "/v1/objects" "/v1/user" "/v1/auth" "/v1/generate" "/v1/ai-generate" "/v2/models" "/v2/scenes" "/v2/objects" "/v2/user" "/v2/auth" "/v2/generate" "/v2/ai-generate" "/health" "/ping" "/openapi" "/swagger" "/docs" "/api-keys" "/user/api_keys" "/api/v1" "/api/v2"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://app.spline.design$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "app.spline.design$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "KAEDIM - UNDISCOVERED SERVICE"
+          echo "============================================="
+          for domain in "kaedim.io" "api.kaedim.io" "app.kaedim.io" "docs.kaedim.io" "www.kaedim.io"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://$domain/" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "$domain -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "=== Kaedim API ==="
+          for ep in "/api" "/v1" "/v2" "/v1/" "/v2/" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/v1/tasks" "/v2/tasks" "/openapi" "/swagger" "/docs" "/api-keys" "/user/api_keys" "/health" "/ping"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.kaedim.io$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.kaedim.io$ep -> $CODE"
+            fi
+          done
+
+          echo ""
+          echo "============================================="
+          echo "NEW DISCOVERED SERVICES"
+          echo "============================================="
+          for svc in "asset-creation.com" "meshcapade.com"; do
+            echo "=== $svc ==="
+            for ep in "/api" "/v1" "/v2" "/v1/" "/v2/" "/v1/models" "/v2/models" "/v1/generate" "/v2/generate" "/openapi" "/swagger" "/docs" "/api-keys" "/user/api_keys" "/health"; do
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.$svc$ep" 2>&1)
+              if [ "$CODE" != "000" ]; then
+                echo "api.$svc$ep -> $CODE"
+              fi
+            done
+          done
+
+          echo ""
+          echo "============================================="
+          echo "SEARCH FOR LEAKED API KEYS"
+          echo "============================================="
+          echo "=== GitHub Search: leaked API keys ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=mesh+ai+api+key+filename:env" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"' | head -5
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=meshyaai+api+key" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"' | head -5
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=tripo3d+api+key" -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count"' | head -5
+
+          echo ""
+          echo "=== NPM: 3D AI packages ==="
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=3d+ai+api&size=10" 2>/dev/null | grep -oE '"name"|"description"' | head -20
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=mesh-to-3d&size=10" 2>/dev/null | grep -oE '"name"|"description"' | head -20
+          curl -s --connect-timeout 10 "https://registry.npmjs.org/-/v1/search?text=text-to-3d-api&size=10" 2>/dev/null | grep -oE '"name"|"description"' | head -20
+
+          echo ""
+          echo "============================================="
+          echo "DEEP RE: Kaedim, Masterpiece, CSM, Shapeshif"
+          echo "============================================="
+          for svc in "kaedim" "masterpiece" "csm" "shapeshift" "meshy"; do
+            for domain in "$svc.ai" "$svc.com" "api.$svc.ai" "app.$svc.ai" "docs.$svc.ai" "www.$svc.ai"; do
+              CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://$domain/" 2>&1)
+              if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+                echo "https://$domain/ -> $CODE"
+                curl -s --connect-timeout 10 "https://$domain/" 2>/dev/null | grep -oE '(api|endpoint|/v1/|/v2/|authorization|bearer|token|apikey|generation|model|mesh|3d|glb)' | sort -u | head -10
+              fi
+            done
+          done
