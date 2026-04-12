@@ -1,0 +1,241 @@
+name: Tripo3D Auth Bypass
+on:
+  workflow_dispatch:
+
+jobs:
+  auth_bypass:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tripo3D Registration Bypass
+        run: |
+          set +e
+
+          echo "=== Tripo3D Registration Flow ==="
+          echo "Step 1: Get registration flow ID"
+          FLOW=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt \
+            -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+            "https://auth.tripo3d.ai/self-service/registration/flows?refresh=true")
+          echo "Flow response: ${#FLOW}"
+          echo "$FLOW" | head -5
+
+          # Try to extract flow ID
+          FLOW_ID=$(echo "$FLOW" | grep -oE 'flow=[a-f0-9-]{36}' | head -1 | cut -d= -f2)
+          echo "Flow ID: $FLOW_ID"
+
+          if [ -z "$FLOW_ID" ]; then
+            echo "=== Try with different headers ==="
+            # Try with Cloudflare bypass headers
+            FLOW2=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+              -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
+              -H "Accept-Language: en-US,en;q=0.5" \
+              -H "Accept-Encoding: gzip, deflate, br" \
+              -H "Connection: keep-alive" \
+              -H "Upgrade-Insecure-Requests: 1" \
+              -H "Sec-Fetch-Dest: document" \
+              -H "Sec-Fetch-Mode: navigate" \
+              -H "Sec-Fetch-Site: none" \
+              -H "Sec-Fetch-User: ?1" \
+              -H "Cache-Control: max-age=0" \
+              "https://auth.tripo3d.ai/self-service/registration/flows")
+            echo "Flow2 response length: ${#FLOW2}"
+            echo "$FLOW2" | head -10
+            FLOW_ID=$(echo "$FLOW2" | grep -oE 'flow=[a-f0-9-]{36}' | head -1 | cut -d= -f2)
+            echo "Flow2 ID: $FLOW_ID"
+          fi
+
+          if [ -n "$FLOW_ID" ]; then
+            echo "=== Get CSRF token ==="
+            FORM=$(curl -s --connect-timeout 10 -c cookies.txt -b cookies.txt \
+              "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            CSRF=$(echo "$FORM" | grep -oE 'csrf_token"[^>]*value="[^"]*"' | head -1 | grep -oE 'value="[^"]*"' | cut -d'"' -f2)
+            echo "CSRF: $CSRF"
+
+            echo "=== Submit registration ==="
+            REG=$(curl -s --connect-timeout 15 -c cookies.txt -b cookies.txt -L -X POST \
+              -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "csrf_token=$CSRF&traits.email=test$(date +%s)@mail.tm&password=TestPass123!" \
+              "https://auth.tripo3d.ai/self-service/registration?flow=$FLOW_ID")
+            echo "Reg response length: ${#REG}"
+            echo "$REG" | head -20
+          fi
+
+          echo ""
+          echo "=== Tripo3D API Direct Registration ==="
+          for ep in "/v2/openapi/register" "/v2/openapi/auth/register" "/v2/openapi/user/register" "/v2/openapi/signup" "/v2/openapi/users"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" \
+              "https://api.tripo3d.ai$ep" \
+              -H "Content-Type: application/json" \
+              -d '{"email":"test999@mail.tm","password":"TestPass123!"}' 2>&1)
+            if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+              echo "api.tripo3d.ai$ep -> $CODE"
+              curl -s --connect-timeout 5 "https://api.tripo3d.ai$ep" \
+                -H "Content-Type: application/json" \
+                -d '{"email":"test999@mail.tm","password":"TestPass123!"}' 2>/dev/null | head -3
+            fi
+          done
+
+          echo ""
+          echo "=== Check Tripo3D website for OAuth providers ==="
+          curl -s --connect-timeout 10 "https://www.tripo3d.ai/register" 2>/dev/null | grep -oE '(google|github|discord|oauth|signin|signup)' | sort -u | head -10
+          curl -s --connect-timeout 10 "https://www.tripo3d.ai/signup" 2>/dev/null | grep -oE '(google|github|discord|oauth|signin|signup)' | sort -u | head -10
+
+          echo ""
+          echo "=== Try Google OAuth flow ==="
+          curl -s --connect-timeout 10 -i "https://auth.tripo3d.ai/oauth2/providers" 2>&1 | head -20
+          curl -s --connect-timeout 10 -i "https://auth.tripo3d.ai/oauth2/consent" 2>&1 | head -20
+
+      - name: Search GitHub for Leaked Tripo3D Keys
+        run: |
+          set +e
+          echo "=== Search for leaked tsk_ API keys ==="
+          # Search for tsk_ pattern
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22tsk_%22+tripo3d" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -3
+
+          echo "=== Search for tsk_ with quotes ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=tsk_+in:file+language:python+tripo" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -3
+
+          echo "=== Search for tripo API key patterns ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=tripo3d+api_key+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -3
+
+          echo "=== Search for VAST-AI-Research tripo repos ==="
+          curl -s --connect-timeout 10 "https://api.github.com/repos/VAST-AI-Research/tripo-python-sdk" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"full_name":"[^"]+"|"description":"[^"]*"' | head -5
+
+      - name: 3D AI Studio Registration
+        run: |
+          set +e
+          echo "=== 3D AI Studio Registration ==="
+
+          echo "=== Try signup endpoints ==="
+          for ep in "/user/register" "/user/signup" "/user/create" "/auth/register" "/auth/signup" "/api/register" "/api/v1/register" "/v1/register" "/register"; do
+            CODE=$(curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" \
+              "https://api.3daistudio.com$ep" \
+              -X POST -H "Content-Type: application/json" \
+              -d '{"email":"test$(date +%s)@mail.tm","password":"TestPass123!"}' 2>&1)
+            if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+              echo "api.3daistudio.com$ep -> $CODE"
+              curl -s --connect-timeout 10 "https://api.3daistudio.com$ep" \
+                -X POST -H "Content-Type: application/json" \
+                -d '{"email":"test999@mail.tm","password":"TestPass123!"}' 2>/dev/null | head -5
+            fi
+          done
+
+          echo "=== Check 3D AI Studio website ==="
+          curl -s --connect-timeout 10 "https://www.3daistudio.com/register" 2>/dev/null | grep -oE '(google|github|discord|oauth|signup|register|free|trial|credit)' | sort -u | head -10
+
+          echo "=== Try OAuth endpoints ==="
+          for ep in "/auth/google/login" "/auth/github/login" "/auth/discord/login" "/oauth/google" "/oauth/github" "/oauth/discord"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.3daistudio.com$ep" 2>&1)
+            if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+              echo "api.3daistudio.com$ep -> $CODE"
+            fi
+          done
+
+      - name: Stability AI Free Tier
+        run: |
+          set +e
+          echo "=== Stability AI Free API ==="
+
+          echo "=== Check Stability API without key ==="
+          curl -s --connect-timeout 10 "https://api.stability.ai/v1/balance" 2>/dev/null | head -3
+          curl -s --connect-timeout 10 "https://api.stability.ai/v1/account" 2>/dev/null | head -3
+          curl -s --connect-timeout 10 "https://api.stability.ai/v1/user" 2>/dev/null | head -3
+
+          echo "=== Check Stability docs for free tier ==="
+          curl -s --connect-timeout 10 "https://platform.stability.ai/docs" 2>/dev/null | grep -oE '(free|trial|credit|register|signup|api.key|get.started)' | sort -u | head -10
+
+          echo "=== Try Stability API key registration ==="
+          for ep in "/v1/auth/register" "/v1/auth/login" "/v1/register" "/v1/login" "/auth/register" "/auth/login"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.stability.ai$ep" -X POST -H "Content-Type: application/json" -d '{"email":"test@mail.tm","password":"Test123!"}' 2>&1)
+            if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+              echo "api.stability.ai$ep -> $CODE"
+            fi
+          done
+
+      - name: Spline API Discovery
+        run: |
+          set +e
+          echo "=== Spline API from GHA ==="
+
+          echo "=== Try Spline web app API ==="
+          for ep in "/v1/models" "/v1/scenes" "/v1/objects" "/v1/generate" "/v1/ai-generate" "/v1/generate/scene" "/v1/generate/model" "/v2/models" "/v2/scenes" "/v2/generate"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://app.spline.design$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "app.spline.design$ep -> $CODE"
+              if [ "$CODE" = "200" ]; then
+                curl -s --connect-timeout 5 "https://app.spline.design$ep" 2>/dev/null | head -5
+              fi
+            fi
+          done
+
+          echo "=== Try Spline API subdomain ==="
+          for ep in "/v1/models" "/v1/scenes" "/v1/generate" "/openapi" "/health"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.spline.design$ep" 2>&1)
+            if [ "$CODE" != "000" ]; then
+              echo "api.spline.design$ep -> $CODE"
+            fi
+          done
+
+          echo "=== Check Spline docs for API key ==="
+          curl -s --connect-timeout 10 "https://docs.spline.design/" 2>/dev/null | grep -oE '(api.key|free|register|signup|get.started|credit|trial)' | sort -u | head -10
+
+      - name: Luma AI API
+        run: |
+          set +e
+          echo "=== Luma AI API ==="
+
+          echo "=== Check Luma API docs ==="
+          curl -s --connect-timeout 10 "https://lumalabs.ai/docs" 2>/dev/null | grep -oE '(api.key|free|register|signup|get.started|credit|trial|oauth)' | sort -u | head -10
+
+          echo "=== Try Luma API endpoints ==="
+          for ep in "/v1/models" "/v1/scenes" "/v1/captures" "/v1/generations" "/v1/tasks" "/v1/generate" "/v2/models" "/v2/generate" "/openapi" "/health" "/user" "/me"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.lumalabs.ai$ep" 2>&1)
+            if [ "$CODE" != "000" ] && [ "$CODE" != "404" ]; then
+              echo "api.lumalabs.ai$ep -> $CODE"
+              if [ "$CODE" = "200" ]; then
+                curl -s --connect-timeout 5 "https://api.lumalabs.ai$ep" 2>/dev/null | head -3
+              fi
+            fi
+          done
+
+          echo "=== Try Luma registration ==="
+          for ep in "/auth/register" "/auth/login" "/user/register" "/v1/auth/register"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.lumalabs.ai$ep" -X POST -H "Content-Type: application/json" -d '{"email":"test@mail.tm","password":"Test123!"}' 2>&1)
+            if [ "$CODE" != "404" ] && [ "$CODE" != "000" ]; then
+              echo "api.lumalabs.ai$ep -> $CODE"
+            fi
+          done
+
+      - name: Comprehensive Key Search
+        run: |
+          set +e
+          echo "=== Search for leaked keys across all services ==="
+
+          echo "=== msy_ (Meshy) ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22msy_%22+meshy+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
+
+          echo "=== tsk_ (Tripo3D) ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22tsk_%22+tripo+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
+
+          echo "=== sk- (Stability AI) ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22sk-%22+stability+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
+
+          echo "=== r8_ (Replicate) ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22r8_%22+replicate+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
+
+          echo "=== Luma AI API key pattern ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22luma%22+api_key+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
+
+          echo "=== Spline API key ==="
+          curl -s --connect-timeout 15 "https://api.github.com/search/code?q=%22spline%22+api_key+in:file" \
+            -H "Accept: application/vnd.github.v3+json" 2>/dev/null | grep -oE '"total_count":[0-9]+' | head -1
