@@ -1,4 +1,4 @@
-name: 3D Service Deep Probe
+name: 3D Service Deep Probe v3
 on:
   workflow_dispatch:
 
@@ -8,50 +8,65 @@ jobs:
     steps:
       - name: Probe all 3D services
         run: |
-          echo '=== SERVICE STATUS FROM US AZURE ==='
-          for service in \
-            "Tripo3D API:https://api.tripo3d.ai/v2/openapi/models" \
-            "Tripo3D Auth:https://auth.tripo3d.ai/.well-known/jwks.json" \
-            "Tripo3D App:https://app.tripo3d.ai" \
-            "Tripo3D Pricing:https://tripo3d.ai/pricing" \
-            "Rodin AI API:https://api.rodin.ai" \
-            "Rodin Homepage:https://www.rodin.ai" \
-            "Polycam API:https://api.polycam.io" \
-            "Polycam:https://poly.cam" \
-            "Spline API:https://api.spline.design" \
-            "Spline App:https://app.spline.design" \
-            "Fast3D API:https://api.fast3d.ai" \
-            "HiTeM API:https://api.hitem.ai" \
-            "3D AI Studio:https://api.3dai-studio.com"
-          do
-            name="${service%%:*}"
-            url="${service#*:}"
-            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "$url" 2>/dev/null)
-            echo "$name: $code"
-          done
+          set +e
+          echo '=== ALL 3D SERVICE STATUS FROM US AZURE ==='
+          
+          declare -A results
+          
+          check() {
+            local name="$1"
+            local url="$2"
+            local code
+            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "$url" 2>/dev/null || echo "ERR")
+            results["$name"]="$code"
+          }
+          
+          check "Tripo3D API v2" "https://api.tripo3d.ai/v2/openapi/models"
+          check "Tripo3D Auth JWKS" "https://auth.tripo3d.ai/.well-known/jwks.json"
+          check "Tripo3D App" "https://app.tripo3d.ai"
+          check "Tripo3D Homepage" "https://tripo3d.ai"
+          check "Rodin AI API" "https://api.rodin.ai"
+          check "Rodin Homepage" "https://www.rodin.ai"
+          check "Polycam API" "https://api.polycam.io"
+          check "Polycam" "https://poly.cam"
+          check "Spline API" "https://api.spline.design"
+          check "Spline App" "https://app.spline.design"
+          check "Spline Viewer" "https://viewer.spline.design"
+          check "Fast3D API" "https://api.fast3d.ai"
+          check "Fast3D App" "https://app.fast3d.ai"
+          check "HiTeM API" "https://api.hitem.ai"
+          check "HiTeM App" "https://app.hitem.ai"
+          check "3D AI Studio API" "https://api.3dai-studio.com"
+          check "3D AI Studio" "https://3dai-studio.com"
+          check "Tripo3D Studio" "https://studio.tripo3d.ai"
+          
+          for name in "${!results[@]}"; do
+            echo "$name: ${results[$name]}"
+          done | sort
           
           echo ''
           echo '=== Tripo3D Auth Deep ==='
-          curl -s -o /dev/null -w 'check-identifier: %{http_code}\n' --connect-timeout 5 -X POST \
-            -H 'Content-Type: application/json' \
+          curl -s --connect-timeout 5 -o /dev/null -w 'check-identifier POST: %{http_code}\n' \
+            -X POST -H 'Content-Type: application/json' \
             -d '{"identifier":"test@test.com"}' \
-            'https://auth.tripo3d.ai/idp-ext/auth/check-identifier' 2>/dev/null
+            'https://auth.tripo3d.ai/idp-ext/auth/check-identifier' || true
           
-          curl -s -o /dev/null -w 'registration-flow: %{http_code}\n' --connect-timeout 5 \
-            'https://auth.tripo3d.ai/self-service/registration/flows' 2>/dev/null
+          curl -s --connect-timeout 5 -o /dev/null -w 'registration-flow GET: %{http_code}\n' \
+            'https://auth.tripo3d.ai/self-service/registration/flows' || true
           
-          curl -s -o /dev/null -w 'login-flow: %{http_code}\n' --connect-timeout 5 \
-            'https://auth.tripo3d.ai/self-service/login/flows' 2>/dev/null
-          
-          echo ''
-          echo '=== Tripo3D API v2 ==='
-          curl -s -w '\nHTTP: %{http_code}\n' --connect-timeout 5 \
-            -H 'Authorization: Bearer test' \
-            'https://api.tripo3d.ai/v2/openapi/models' 2>/dev/null | head -3
+          curl -s --connect-timeout 5 -o /dev/null -w 'login-flow GET: %{http_code}\n' \
+            'https://auth.tripo3d.ai/self-service/login/flows' || true
           
           echo ''
-          echo '=== Tripo3D Try Other Paths ==='
-          for path in /v1 /v1/models /v1/tasks /rest/v1 /api/v1 /api/v2/openapi/models /openapi.json /docs; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "https://api.tripo3d.ai$path" 2>/dev/null)
+          echo '=== Tripo3D API Paths ==='
+          for path in /v1 /v1/models /v1/tasks /rest/v1 /api/v1 /api/v2/openapi/models /openapi.json /docs /health /ping; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "https://api.tripo3d.ai$path" 2>/dev/null || echo "ERR")
             echo "  $path: $code"
           done
+          
+          echo ''
+          echo '=== Tripo3D Auth Check Identifier Response ==='
+          curl -s --connect-timeout 10 -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"identifier":"test@gmail.com"}' \
+            'https://auth.tripo3d.ai/idp-ext/auth/check-identifier' || true
