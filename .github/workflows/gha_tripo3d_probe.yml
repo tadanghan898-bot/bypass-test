@@ -1,0 +1,304 @@
+name: Tripo3D Deep RE Probe
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target'
+        required: true
+        default: 'tripo3d'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deep probe Tripo3D services
+        run: |
+          set +e
+
+          echo "=== 1. PROBE TRIPO3D STUDIO (studio.tripo3d.ai) ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://studio.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 2. PROBE TRIPO3D STUDIO ASSETS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://studio.tripo3d.ai/assets/" 2>&1
+          echo ""
+
+          echo "=== 3. PROBE TRIPO3D STUDIO API ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://studio.tripo3d.ai/api/" 2>&1
+          echo ""
+
+          echo "=== 4. PROBE TRIPO3D STUDIO JS BUNDLES ==="
+          curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oE 'src="[^"]*\.js"' | head -20
+          echo ""
+
+          echo "=== 5. PROBE TRIPO3D MAIN SITE JS ==="
+          curl -s --connect-timeout 10 "https://tripo3d.ai/" 2>/dev/null | grep -oE 'src="[^"]*\.js"' | head -20
+          echo ""
+
+          echo "=== 6. PROBE TRIPO3D API V2 MODELS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/v2/openapi/models" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://api.tripo3d.ai/v2/openapi/models" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 7. PROBE TRIPO3D API V2 TASKS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/v2/tasks" 2>&1
+          echo ""
+
+          echo "=== 8. PROBE TRIPO3D API V2 USER ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/v2/user" 2>&1
+          echo ""
+
+          echo "=== 9. PROBE TRIPO3D API SWAGGER ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/swagger" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai/v2/swagger" 2>&1
+          echo ""
+
+          echo "=== 10. PROBE TRIPO3D DOCS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://docs.tripo3d.ai/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 11. PROBE TRIPO3D DOCS API ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/api" 2>/dev/null | grep -oE '(api|endpoint|key|auth|token|generation|model)[^"'"'"'<]*' | head -30
+          echo ""
+
+          echo "=== 12. PROBE TRIPO3D DOCS V2 ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/v2" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 13. PROBE TRIPO3D DOCS API V2 ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/api/v2" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 14. PROBE TRIPO3D DOCS KEY ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/api-key" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 15. PROBE TRIPO3D DOCS AUTH ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/authentication" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 16. PROBE TRIPO3D DOCS QUICKSTART ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/quickstart" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 17. PROBE TRIPO3D DOCS SDK ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/sdk" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 18. PROBE TRIPO3D DOCS LIBRARY ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/library" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 19. PROBE TRIPO3D DOCS GENERATE ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/generate" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 20. PROBE TRIPO3D DOCS TASK ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/task" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 21. PROBE TRIPO3D DOCS MODELS ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/models" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 22. PROBE TRIPO3D DOCS OPENAPI ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/openapi.json" 2>/dev/null | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/openapi.yaml" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 23. PROBE TRIPO3D DOCS REFERENCE ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/reference" 2>/dev/null | head -20
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/reference/v2" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 24. PROBE TRIPO3D DOCS ENDPOINTS ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/endpoints" 2>/dev/null | head -20
+          echo ""
+
+          echo "=== 25. PROBE STUDIO ASSETS - FIND JS ==="
+          curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oE '(main|app|bundle|chunk|vendor)[^"'"'"'>]*\.js' | head -10
+          echo ""
+
+          echo "=== 26. PROBE STUDIO JS CHUNKS ==="
+          curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP 'src="[^"]+\.js"' | head -5
+          echo ""
+
+          echo "=== 27. PROBE STUDIO MAIN JS ==="
+          MAIN_JS=$(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP 'src="[^"]+main[^"]*\.js"' | head -1 | grep -oP '"[^"]+\.js"' | tr -d '"')
+          echo "Main JS: $MAIN_JS"
+          if [ -n "$MAIN_JS" ]; then
+            curl -s --connect-timeout 10 "https://studio.tripo3d.ai$MAIN_JS" 2>/dev/null | grep -oE '(api|endpoint|/v2/|/v1/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run)' | sort -u | head -50
+          fi
+          echo ""
+
+          echo "=== 28. PROBE TRIPO3D DOCS SITEMAP ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/sitemap.xml" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== 29. PROBE TRIPO3D DOCS 404 ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://docs.tripo3d.ai/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== 30. PROBE TRIPO3D WWW ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://www.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 31. PROBE TRIPO3D BLOG ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://blog.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 32. PROBE TRIPO3D STATUS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://status.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 33. PROBE TRIPO3D HELP ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://help.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 34. PROBE TRIPO3D DEVELOPERS ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://developers.tripo3d.ai/" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://developers.tripo3d.ai/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== 35. PROBE TRIPO3D DEV ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://dev.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 36. PROBE TRIPO3D API DOCS ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | head -30
+          echo ""
+
+          echo "=== 37. PROBE TRIPO3D DOCS SECTIONS ==="
+          for path in "/" "/introduction" "/getting-started" "/quick-start" "/authentication" "/api-reference" "/api" "/reference" "/guides" "/tutorials" "/sdks"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.tripo3d.ai$path" 2>&1)
+            echo "docs.tripo3d.ai$path: $CODE"
+          done
+          echo ""
+
+          echo "=== 38. PROBE TRIPO3D DOCS SECTIONS V2 ==="
+          for path in "/" "/introduction" "/getting-started" "/quick-start" "/authentication" "/api-reference" "/api" "/reference" "/guides" "/tutorials" "/sdks"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.tripo3d.ai/v2$path" 2>&1)
+            echo "docs.tripo3d.ai/v2$path: $CODE"
+          done
+          echo ""
+
+          echo "=== 39. PROBE TRIPO3D DOCS OPENAPI ==="
+          for path in "/openapi.json" "/openapi.yaml" "/swagger.json" "/api-spec.json" "/spec.json"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://docs.tripo3d.ai$path" 2>&1)
+            echo "docs.tripo3d.ai$path: $CODE"
+          done
+          echo ""
+
+          echo "=== 40. PROBE TRIPO3D API V2 ENDPOINTS ==="
+          for ep in "/v2/tasks" "/v2/models" "/v2/scenes" "/v2/textures" "/v2/generate" "/v2/create" "/v2/submit" "/v2/task" "/v2/model" "/v2/openapi.json" "/v2/api-docs" "/v2/docs"; do
+            CODE=$(curl -s --connect-timeout 5 -o /dev/null -w "%{http_code}" "https://api.tripo3d.ai$ep" 2>&1)
+            echo "api.tripo3d.ai$ep: $CODE"
+          done
+          echo ""
+
+          echo "=== 41. PROBE STUDIO JS API PATTERNS ==="
+          JS_URL=$(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | head -5 | tr -d '"' | head -1)
+          echo "JS: $JS_URL"
+          if [ -n "$JS_URL" ]; then
+            curl -s --connect-timeout 30 "https://studio.tripo3d.ai$JS_URL" 2>/dev/null | grep -oE '(api|endpoint|/v2/|/v1/|authorization|bearer|token|apikey|api_key|generation|task|model|scene|texture|mesh|glb|usdz|create|submit|start|run)' | sort -u | head -50
+          fi
+          echo ""
+
+          echo "=== 42. PROBE TRIPO3D DOCS SEARCH ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | grep -oE '"(path|url|href)"[^>]*>[^<]*' | head -20
+          echo ""
+
+          echo "=== 43. PROBE TRIPO3D DOCS CONTENT ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | grep -oP '<a[^>]+href="[^"]+"' | head -30
+          echo ""
+
+          echo "=== 44. PROBE TRIPO3D DOCS META ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/" 2>/dev/null | grep -oP '(content|property)=["\047][^"\047]+["\047]' | sort -u | head -30
+          echo ""
+
+          echo "=== 45. PROBE TRIPO3D DOCS REDIRECTS ==="
+          curl -v --connect-timeout 10 "https://docs.tripo3d.ai/" 2>&1 | head -30
+          echo ""
+
+          echo "=== 46. PROBE TRIPO3D GITHUB ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://github.com/tripo3d" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 "https://github.com/tripo3d" 2>/dev/null | grep -oE 'repo|api|sdk|node' | head -10
+          echo ""
+
+          echo "=== 47. PROBE TRIPO3D NPM ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://www.npmjs.com/package/tripo3d" 2>&1
+          echo ""
+          curl -s --connect-timeout 10 -o /dev/null -w "%{http_code}" "https://www.npmjs.com/package/@tripo3d/api" 2>&1
+          echo ""
+
+          echo "=== 48. PROBE TRIPO3D NPM API DOCS ==="
+          curl -s --connect-timeout 10 "https://www.npmjs.com/package/tripo3d" 2>/dev/null | grep -oE '(api|endpoint|auth|token|key|generate|model)' | head -20
+          echo ""
+
+          echo "=== 49. PROBE TRIPO3D STUDIO CHUNKS ==="
+          INDEX=$(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null)
+          if [ -n "$INDEX" ]; then
+            echo "$INDEX" | grep -oP 'src="[^"]+\.js"' | head -10
+          fi
+          echo ""
+
+          echo "=== 50. PROBE STUDIO JS - EXTRACT API CALLS ==="
+          for JS in $(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -5); do
+            echo "Checking: $JS"
+            curl -s --connect-timeout 15 "https://studio.tripo3d.ai$JS" 2>/dev/null | grep -oE 'https://[a-z.]+\.tripo3d\.ai[^"'"'"' \)]*' | sort -u
+          done
+          echo ""
+
+          echo "=== 51. PROBE STUDIO JS - EXTRACT ENDPOINTS ==="
+          for JS in $(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -5); do
+            curl -s --connect-timeout 15 "https://studio.tripo3d.ai$JS" 2>/dev/null | grep -oE '/(v1|v2|v3)/[a-zA-Z0-9/_-]+' | sort -u
+          done
+          echo ""
+
+          echo "=== 52. PROBE STUDIO JS - EXTRACT STRINGS ==="
+          for JS in $(curl -s --connect-timeout 10 "https://studio.tripo3d.ai/" 2>/dev/null | grep -oP '"[^"]+\.js"' | tr -d '"' | head -3); do
+            curl -s --connect-timeout 15 "https://studio.tripo3d.ai$JS" 2>/dev/null | grep -oE '"(/[a-z]+){2,}"' | sort -u | head -20
+          done
+          echo ""
+
+          echo "=== 53. PROBE TRIPO3D DOCS REDIRECT TARGET ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{url_effective}" "https://docs.tripo3d.ai/" 2>&1
+          echo ""
+
+          echo "=== 54. PROBE TRIPO3D DOCS REDIRECT TARGET V2 ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{url_effective}" "https://docs.tripo3d.ai/v2" 2>&1
+          echo ""
+
+          echo "=== 55. PROBE TRIPO3D DOCS REDIRECT TARGET API ==="
+          curl -s --connect-timeout 10 -o /dev/null -w "%{url_effective}" "https://docs.tripo3d.ai/api" 2>&1
+          echo ""
+
+          echo "=== 56. PROBE TRIPO3D DOCS FAVICON ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/favicon.ico" 2>/dev/null | head -5
+          echo ""
+
+          echo "=== 57. PROBE TRIPO3D DOCS ROBOTS ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/robots.txt" 2>/dev/null
+          echo ""
+
+          echo "=== 58. PROBE TRIPO3D DOCS SITEMAP ALL ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/sitemap.xml" 2>/dev/null
+          echo ""
+
+          echo "=== 59. PROBE TRIPO3D DOCS SITEMAP V2 ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/v2/sitemap.xml" 2>/dev/null
+          echo ""
+
+          echo "=== 60. PROBE TRIPO3D DOCS SITEMAP API ==="
+          curl -s --connect-timeout 10 "https://docs.tripo3d.ai/api/sitemap.xml" 2>/dev/null
+          echo ""
