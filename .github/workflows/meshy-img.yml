@@ -1,0 +1,82 @@
+name: Meshy Image to 3D
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: 'Image URL'
+        required: true
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download image
+        run: |
+          wget -q "${{ inputs.image_url }}" -O input.jpg
+          echo "Downloaded: $(ls -lh input.jpg)"
+          echo "IMAGE_SIZE=$(stat -c%s input.jpg)" >> $GITHUB_OUTPUT
+
+      - name: Upload to Imgur
+        id: imgur
+        run: |
+          # Convert to base64 and upload to imgur
+          IMG_B64=$(base64 -w0 input.jpg | tr -d '\n')
+          RESP=$(curl -s -X POST "https://api.imgur.com/3/image" \
+            -H "Authorization: Client-ID f78d76e0c26f9e5" \
+            -F "image=$IMG_B64" \
+            -F "type=base64")
+          URL=$(echo $RESP | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['link'])")
+          echo "imgur_url=$URL" >> $GITHUB_OUTPUT
+          echo "Uploaded to Imgur: $URL"
+
+      - name: Call Meshy AI
+        id: meshy
+        run: |
+          RESP=$(curl -s -X POST "https://api.meshy.ai/openapi/v1/image-to-3d" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "X-Api-Version: v2026.04.03.post7" \
+            -H "Content-Type: application/json" \
+            -d "{\"image_url\": \"${{ steps.imgur.outputs.imgur_url }}\", \"art_style\": \"realistic\", \"target_format\": \"glb\"}")
+          echo "Response: $RESP"
+          TASK_ID=$(echo $RESP | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['task_id'])" 2>/dev/null)
+          echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+          echo "Task ID: $TASK_ID"
+
+      - name: Poll Meshy AI until done
+        run: |
+          TASK_ID="${{ steps.meshy.outputs.task_id }}"
+          echo "Polling task: $TASK_ID"
+          for i in $(seq 1 60); do
+            sleep 15
+            STATUS=$(curl -s "https://api.meshy.ai/openapi/v1/image-to-3d/$TASK_ID" \
+              -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+              -H "X-Api-Version: v2026.04.03.post7" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))")
+            echo "Status ($i): $STATUS"
+            if [ "$STATUS" = "completed" ]; then
+              echo "COMPLETED!"
+              break
+            elif [ "$STATUS" = "failed" ]; then
+              echo "FAILED!"
+              exit 1
+            fi
+          done
+
+      - name: Download GLB
+        run: |
+          TASK_ID="${{ steps.meshy.outputs.task_id }}"
+          RESULT=$(curl -s "https://api.meshy.ai/openapi/v1/image-to-3d/$TASK_ID" \
+            -H "Authorization: Bearer ${{ secrets.MESHY_MSY_KEY }}" \
+            -H "X-Api-Version: v2026.04.03.post7")
+          GLB_URL=$(echo $RESULT | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['model_url'])")
+          echo "GLB URL: $GLB_URL"
+          wget -q "$GLB_URL" -O result.glb
+          echo "Downloaded: $(ls -lh result.glb)"
+
+      - name: Upload GLB
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3d-result
+          path: |
+            result.glb
+            input.jpg
