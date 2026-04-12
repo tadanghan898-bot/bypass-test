@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-Quick targeted game fetcher - searches ~15-20 high-value queries to find
-200-500 game repos, then downloads them using smart path prioritization.
-Combines search + fetch in one pass, reuses logic from fetch.py.
+Quick targeted game fetcher - optimized for 2-hour GitHub Actions limit.
+Key optimizations:
+- Minimal search phase (top 10 queries only)
+- Concurrent downloads (10 workers)
+- Incremental commits every 30 min via git subprocess
+- Skip already-existing repos
 """
 import urllib.request
 import json
@@ -10,6 +13,7 @@ import os
 import time
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 TOKEN = os.environ.get('GH_TOKEN', '')
 
@@ -40,14 +44,32 @@ def gh(url, retries=3):
             err_str = str(e).lower()
             if '403' in err_str or 'rate limit' in err_str or '429' in err_str:
                 if attempt < retries - 1:
-                    wait = (attempt + 1) * 3
-                    print(f"  Rate limited, retrying in {wait}s...")
+                    wait = (attempt + 1) * 10  # Short backoff: 10s, 20s, 30s
                     time.sleep(wait)
                     continue
-            if attempt == retries - 1:
-                print(f"  GH Error: {e}")
             return {}
     return {}
+
+
+def search_query(q):
+    """Search a single query, return list of (repo, slug) tuples."""
+    try:
+        data = gh(
+            f"https://api.github.com/search/repositories"
+            f"?q={q.replace(' ', '%20')}&per_page=30&sort=stars"
+        )
+        items = data.get('items', [])
+        results = []
+        for item in items:
+            repo = item['full_name']
+            name = item.get('name', '')
+            desc = item.get('description', '')
+            if is_framework_repo(name, desc):
+                continue
+            results.append((repo, make_slug(repo)))
+        return q, results, None
+    except Exception as e:
+        return q, [], str(e)
 
 
 def curl_raw(url):
@@ -79,7 +101,7 @@ def get_file(repo, path):
 
 
 def get_dir(repo, path=''):
-    """Get directory listing."""
+    """Get directory listing. Returns [] on rate limit to allow graceful skip."""
     try:
         url = (f"https://api.github.com/repos/{repo}/contents/{path}"
                if path else f"https://api.github.com/repos/{repo}/contents/")
@@ -253,48 +275,17 @@ PRIORITY_PATHS = [
 # Each query targets a specific high-value category
 # =========================================================================
 SEARCH_QUERIES = [
-    # Category leaders - highest value, most likely to be real games
-    "2048 game javascript in:readme stars:>50",
-    "hextris javascript game in:readme stars:>10",
-    "phaser game javascript in:readme stars:>30",
-    "pixi.js game javascript in:readme stars:>30",
-    "three.js game javascript in:readme stars:>50",
-
-    # Classic arcade clones - well-defined, playable
+    # Top 10 highest-value queries - max coverage, min API calls
     "snake game javascript in:readme stars:>50",
     "tetris javascript game in:readme stars:>50",
     "pacman javascript game in:readme stars:>50",
-    "pong javascript game in:readme stars:>30",
-    "breakout javascript game in:readme stars:>30",
-    "flappy bird clone javascript in:readme stars:>30",
     "chess javascript game in:readme stars:>30",
+    "2048 game javascript in:readme stars:>30",
+    "flappy bird clone javascript in:readme stars:>30",
     "sudoku javascript game in:readme stars:>20",
     "mahjong javascript game in:readme stars:>20",
-    "solitaire javascript game in:readme stars:>20",
-
-    # Popular genres - broad coverage with high thresholds
-    "roguelike javascript game in:readme stars:>80",
-    "platformer javascript html5 game in:readme stars:>50",
-    "tower defense javascript game in:readme stars:>50",
-    "endless runner javascript game in:readme stars:>50",
-    "match3 game javascript in:readme stars:>50",
-    "racing game javascript in:readme stars:>30",
-
-    # Competitions - js13k / Ludum Dare entries are self-contained
-    "js13k game javascript in:readme stars:>30",
-    "ludum dare game javascript in:readme stars:>30",
-
-    # Browser-playable keywords
-    "playable javascript game in:readme stars:>30",
-    "browser game javascript arcade in:readme stars:>50",
-    "html5 canvas game javascript in:readme stars:>100",
-    "webgl game javascript in:readme stars:>50",
-
-    # Genres with good yield
-    "dungeon crawler javascript game in:readme stars:>30",
-    "rpg javascript game in:readme stars:>50",
-    "physics game javascript in:readme stars:>30",
-    "sand game javascript in:readme stars:>30",
+    "breakout javascript game in:readme stars:>30",
+    "pong javascript game in:readme stars:>30",
 ]
 
 
@@ -458,12 +449,8 @@ def fetch_one_game(repo, slug):
         best_score = 0
         best_path = ''
 
-        # Phase 1: Try priority paths with index.html / game.html / play.html
-        priority_files = [
-            'index.html', 'game.html', 'play.html', 'play/index.html',
-            'demo.html', 'demo/index.html', 'src/index.html',
-            'dist/index.html', 'build/index.html',
-        ]
+        # Try only the most common entry points first
+        priority_files = ['index.html', 'game.html', 'play.html', 'demo.html', 'src/index.html']
 
         for pf in priority_files:
             content, fp, sz = get_file(repo, pf)
@@ -473,36 +460,30 @@ def fetch_one_game(repo, slug):
                     best_score = score
                     best_content = content
                     best_path = fp
+            if best_score >= 8:  # High score = good game, skip rest
+                break
 
-        # Phase 2: If no good HTML found, scan tree for HTML files
+        # If no good HTML, scan tree for HTML files (shallow: 1 level)
         if best_score < 5:
-            all_files = get_dir_tree(repo, max_depth=2)
+            all_files = get_dir_tree(repo, max_depth=1)
             html_files = [
                 f for f in all_files
                 if f.get('name', '').endswith('.html')
                 or f.get('name', '').endswith('.htm')
             ]
-            # Sort by name preference: index, game, play first
+            # Sort: index, game, play first
             def html_sort_key(f):
                 n = f.get('name', '').lower()
-                if n == 'index.html':
-                    return 0
-                if n == 'game.html':
-                    return 1
-                if n == 'play.html':
-                    return 2
-                if n in ('index.htm', 'index.html'):
-                    return 3
-                return 4
-
+                if n == 'index.html': return 0
+                if n == 'game.html': return 1
+                if n == 'play.html': return 2
+                return 3
             html_files.sort(key=html_sort_key)
-            for f in html_files[:20]:
+            for f in html_files[:10]:
                 url = f.get('download_url')
-                if not url:
-                    continue
+                if not url: continue
                 content = curl(url)
-                if not content:
-                    continue
+                if not content: continue
                 fp = f.get('path', '')
                 score = score_html(content, fp)
                 if score > best_score:
@@ -513,19 +494,15 @@ def fetch_one_game(repo, slug):
         if not best_content or best_score < 5:
             return None
 
-        # Phase 3: Download the game directory
+        # Download the game directory (shallow)
         base = best_path.rsplit('/', 1)[0] if '/' in best_path else ''
-        if base:
-            dir_files = get_dir_tree(repo, base, max_depth=3)
-        else:
-            dir_files = get_dir_tree(repo, '', max_depth=2)
+        dir_files = get_dir_tree(repo, base, max_depth=2) if base else get_dir_tree(repo, '', max_depth=1)
 
-        # Filter to relevant game files (include images/audio/fonts, skip huge files)
+        # Filter to relevant game files
         game_files = []
         for f in dir_files:
             n = f.get('name', '').lower()
             ext = n.split('.')[-1] if '.' in n else ''
-            # Include: html, js, json, wasm, txt, md, audio, fonts, images
             if ext in {
                 '', 'html', 'htm', 'js', 'json', 'wasm', 'txt', 'md',
                 'mp3', 'ogg', 'wav', 'm4a', 'aac', 'flac',
@@ -569,96 +546,135 @@ def main():
             all_repos[repo] = ('known', slug)
             seen.add(repo)
 
-    # Second: search queries (deduplicated)
-    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} targeted queries...")
+    # Search queries (10 queries, sequential with small delay)
+    print(f"\n[PHASE 2] Searching {len(SEARCH_QUERIES)} queries...")
     for i, q in enumerate(SEARCH_QUERIES):
         print(f"  [{i+1}/{len(SEARCH_QUERIES)}] {q[:55]}...", end='', flush=True)
-        try:
-            data = gh(
-                f"https://api.github.com/search/repositories"
-                f"?q={q.replace(' ', '%20')}&per_page=30&sort=stars"
-            )
-            items = data.get('items', [])
-            count = 0
-            for item in items:
-                repo = item['full_name']
+        _, results, err = search_query(q)
+        count = 0
+        if err:
+            print(f" Error: {err}")
+        else:
+            for repo, slug in results:
                 if repo not in seen:
-                    name = item.get('name', '')
-                    desc = item.get('description', '')
-                    if is_framework_repo(name, desc):
-                        continue
-                    all_repos[repo] = ('search', make_slug(repo))
+                    all_repos[repo] = ('search', slug)
                     seen.add(repo)
                     count += 1
-            print(f" -> {len(items)} found ({count} new, total: {len(all_repos)})")
-            time.sleep(1.2)  # Respect rate limits
-        except Exception as e:
-            print(f" Error: {e}")
-            time.sleep(3)
+            print(f" -> {len(results)} found ({count} new, total: {len(all_repos)})")
+        time.sleep(0.5)
 
     print(f"\n=== TOTAL REPOS TO FETCH: {len(all_repos)} ===")
 
-    # Save repo list
-    repos_path = '/tmp/repos_quick.txt'
-    with open(repos_path, 'w') as f:
-        for repo, (source, slug) in sorted(all_repos.items()):
-            f.write(f"{repo}\t{slug}\t{source}\n")
-    print(f"Saved repo list to {repos_path}")
+    # ----------------------------------------------------------------
+    # STEP 3: Concurrent fetch with incremental commits
+    # ----------------------------------------------------------------
+    print(f"\n[PHASE 3] Fetching (10 concurrent workers)...")
 
-    # ----------------------------------------------------------------
-    # STEP 3: Fetch all games
-    # ----------------------------------------------------------------
-    print(f"\n[PHASE 3] Fetching all games...")
+    import subprocess, random
+
+    def do_commit(msg):
+        """Commit and push game files to main branch."""
+        try:
+            subprocess.run(['git', 'add', '--force', 'public/games/'],
+                         capture_output=True, text=True)
+            r = subprocess.run(['git', 'diff', '--cached', '--quiet'],
+                            capture_output=True, text=True)
+            if r.returncode != 0:
+                r2 = subprocess.run(['git', 'commit', '-m', msg],
+                                 capture_output=True, text=True)
+                if r2.returncode == 0:
+                    r3 = subprocess.run(['git', 'push', 'origin', 'main'],
+                                    capture_output=True, text=True)
+                    if r3.returncode == 0:
+                        print(f"\n[PUSH] {msg}")
+                        return True
+                    else:
+                        print(f"\n[PUSH FAILED] {r3.stderr[:200]}")
+                else:
+                    print(f"\n[COMMIT FAILED] {r2.stderr[:200]}")
+            else:
+                print(f"\n[NO CHANGES]")
+            return False
+        except Exception as e:
+            print(f"\n[COMMIT ERROR] {e}")
+            return False
+
+    def fetch_worker(repo_slug):
+        repo, slug = repo_slug
+        game_path = f"public/games/{slug}"
+        if os.path.isdir(game_path):
+            files = [f for f in os.listdir(game_path)
+                     if os.path.isfile(os.path.join(game_path, f))]
+            if len(files) >= 3:
+                return repo, slug, 'skip', None
+        result = fetch_one_game(repo, slug)
+        return repo, slug, 'ok' if result else 'fail', result
 
     OK = 0
     FAIL = 0
     SKIP = 0
-    TOTAL_FILES = 0
-    i = 0
-    total = len(all_repos)
+    start_time = time.time()
+    last_commit = start_time
+    COMMIT_INTERVAL = 5 * 60   # Commit every 5 min (saves progress if cancelled)
+    COMMIT_EVERY = 20          # OR commit every 20 repos processed
 
-    for repo, (source, slug) in all_repos.items():
-        i += 1
-        print(f"\n[{i}/{total}] {repo}...", end='', flush=True)
+    repos_list = [(repo, data[1]) for repo, data in all_repos.items()]
+    random.shuffle(repos_list)
 
-        # Skip if already exists with content
-        game_path = f"{out_dir}/{slug}"
-        if os.path.isdir(game_path):
-            existing_files = [
-                f for f in os.listdir(game_path)
-                if os.path.isfile(os.path.join(game_path, f))
-            ]
-            if len(existing_files) >= 3:
-                print(f" SKIP (already exists: {len(existing_files)} files)")
-                SKIP += 1
-                continue
+    total = len(repos_list)
+    done = 0
+    since_commit = 0
 
-        result = fetch_one_game(repo, slug)
-        if result:
-            content, cat, downloaded, score = result
-            print(f" OK ({downloaded} files, score={score}, cat={cat})")
-            OK += 1
-            TOTAL_FILES += downloaded
-        else:
-            print(f" FAIL")
-            FAIL += 1
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {}
+        for repo, slug in repos_list:
+            f = executor.submit(fetch_worker, (repo, slug))
+            futures[f] = (repo, slug)
 
-        time.sleep(0.2)
+        for future in as_completed(futures):
+            repo, slug = futures[future]
+            done += 1
+            since_commit += 1
+            try:
+                _, _, status, result = future.result()
+                if status == 'skip':
+                    print(f"[{done}/{total}] {repo} SKIP")
+                    SKIP += 1
+                elif status == 'ok':
+                    _, cat, downloaded, score = result
+                    print(f"[{done}/{total}] {repo} OK ({downloaded}f, s={score})")
+                    OK += 1
+                else:
+                    print(f"[{done}/{total}] {repo} FAIL")
+                    FAIL += 1
+            except Exception as e:
+                print(f"[{done}/{total}] {repo} ERROR: {e}")
+                FAIL += 1
 
-    # ----------------------------------------------------------------
-    # SUMMARY
-    # ----------------------------------------------------------------
-    print("\n" + "=" * 60)
+            # Commit if 5 min elapsed OR 20 repos processed
+            elapsed = time.time() - last_commit
+            if elapsed >= COMMIT_INTERVAL or since_commit >= COMMIT_EVERY:
+                elapsed_total = int(time.time() - start_time)
+                msg = f"mega games v3 ({OK}ok {FAIL}fail {SKIP}skip, {elapsed_total}s)"
+                do_commit(msg)
+                last_commit = time.time()
+                since_commit = 0
+                print(f"  >>> Checkpoint: {OK}ok {FAIL}fail {SKIP}skip ({elapsed_total}s elapsed)", flush=True)
+
+    elapsed_total = int(time.time() - start_time)
+    print(f"\n{'='*60}")
     print("FINAL RESULTS")
-    print("=" * 60)
+    print(f"{'='*60}")
     print(f"  OK:   {OK}")
     print(f"  FAIL: {FAIL}")
     print(f"  SKIP: {SKIP}")
-    print(f"  Total files downloaded: {TOTAL_FILES}")
-    print(f"  Total repos processed:  {i}")
-    print("=" * 60)
+    print(f"  Elapsed: {elapsed_total}s")
+    print(f"{'='*60}")
 
-    return OK, FAIL, SKIP, TOTAL_FILES
+    msg = f"mega games v3 ({OK}ok {FAIL}fail {SKIP}skip, {elapsed_total}s)"
+    do_commit(msg)
+
+    return OK, FAIL, SKIP, 0
 
 
 if __name__ == '__main__':
