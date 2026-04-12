@@ -17,7 +17,6 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: write
-    # Only run on workflow_dispatch or when commit message contains 'TRIGGER'
     if: github.event_name == 'workflow_dispatch' || (github.event.commits[0].message && contains(github.event.commits[0].message, 'TRIGGER'))
 
     steps:
@@ -26,6 +25,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          ref: mega-trigger-v3
 
       - name: Configure git
         run: |
@@ -58,7 +58,6 @@ jobs:
         if: always()
         run: |
           git pull --rebase origin main 2>/dev/null || true
-          # Only stage actual game files, not empty dirs
           git add --force public/games/
           if ! git diff --cached --quiet; then
             git commit -m "mega games v3 $(date -u +'%Y-%m-%d %H:%M:%S UTC')" && \
