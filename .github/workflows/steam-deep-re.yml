@@ -1,0 +1,41 @@
+name: STEAM DEEP RE - ALL 23 PC2 GAMES
+on: workflow_dispatch
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Steam game data
+        run: |
+          mkdir -p steam_data
+          GAMES='730,4000,34330,107410,253230,264710,271590,292030,346110,367520,374320,413150,526870,548430,719040,814380,892970,1086940,1091500,1174180,1245620,1623730,1677280'
+          for appid in $GAMES; do
+            echo "Fetching appid: $appid"
+            curl -sL "https://store.steampowered.com/api/appdetails?appids=$appid&l=en&cc=US" \
+              -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+              --max-time 15 > "steam_data/$appid.json"
+            echo "  -> $(wc -c < steam_data/$appid.json) bytes"
+            sleep 1
+          done
+          echo "=== STEAM DEEP RE RESULTS ===" > steam_data/SUMMARY.txt
+          for f in steam_data/*.json; do
+            name=$(python3 -c "import json,sys; d=json.load(open('$f')); k=list(d.keys())[0]; print(d[k]['data']['name'] if d[k].get('success') and d[k].get('data') else 'N/A')" 2>/dev/null)
+            price=$(python3 -c "import json,sys; d=json.load(open('$f')); k=list(d.keys())[0]; p=d[k].get('data',{}).get('price_overview',{}).get('final_formatted','N/A'); print(p)" 2>/dev/null)
+            mc=$(python3 -c "import json,sys; d=json.load(open('$f')); k=list(d.keys())[0]; m=d[k].get('data',{}).get('metacritic',{}).get('score','N/A'); print(m)" 2>/dev/null)
+            type=$(python3 -c "import json,sys; d=json.load(open('$f')); k=list(d.keys())[0]; t=d[k].get('data',{}).get('type','?').upper(); print(t)" 2>/dev/null)
+            echo "$f: $name | $type | $price | MC:$mc" >> steam_data/SUMMARY.txt
+          done
+          cat steam_data/SUMMARY.txt
+      - name: Get achievements for key games
+        run: |
+          for appid in 730 374320 1086940 1091500 1245620; do
+            curl -sL "https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=$appid&format=json" \
+              -H "User-Agent: Mozilla/5.0" --max-time 10 > "steam_data/achievements_$appid.json" 2>/dev/null
+            echo "Achievements $appid: $(wc -c < steam_data/achievements_$appid.json) bytes"
+          done
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam-deep-re
+          path: steam_data/
+          compression-level: 9
