@@ -1,0 +1,23 @@
+name: DeepInfra Simple Test
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Hello"
+      - run: python3 --version
+      - name: Install requests
+        run: pip3 install requests
+      - name: Test DeepInfra
+        run: |
+          python3 -c "
+import requests
+r = requests.get('https://api.deepinfra.com/v1/models', timeout=30)
+print('Status:', r.status_code)
+print('Models:', len(r.json().get('data',[])))
+"
