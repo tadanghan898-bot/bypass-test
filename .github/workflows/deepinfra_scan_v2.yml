@@ -1,0 +1,149 @@
+name: DeepInfra Full Model Scan v2
+
+on:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+    types:
+      - deepinfra-scan
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Scan all models
+        run: |
+          python3 << 'PYEOF'
+import requests
+import json
+import time
+
+API = "https://api.deepinfra.com/v1"
+session = requests.Session()
+session.headers["Authorization"] = "Bearer "
+
+print("Fetching model list...")
+resp = session.get(f"{API}/models", timeout=30)
+models = [m["id"] for m in resp.json().get("data", [])]
+print(f"Total: {len(models)}")
+
+# --- IMAGE MODELS ---
+img_pats = ['flux', 'sdxl', 'bria/', 'wan', 'seed', 'qwen-image', 'janus', 'fibo', 'remove_background', 'blur_background', 'expand', 'replace_background', 'enhance', 'erase_foreground', 'p-image', 'creative', 'crystal', 'stabilityai']
+img_models = [m for m in models if any(p in m.lower() for p in img_pats)]
+print(f"Image models: {len(img_models)}")
+
+img_working = []
+for mid in img_models:
+    url = f"{API}/inference/{mid}"
+    for pl in [{"prompt": "a sunset over mountains", "num_inference_steps": 20}, {"prompt": "a cat"}]:
+        try:
+            r = session.post(url, json=pl, timeout=60)
+            if r.status_code == 200:
+                ct = r.headers.get("Content-Type","")
+                if "image" in ct:
+                    img_working.append(f"IMAGE {mid} | {len(r.content)}B")
+                    print(f"IMAGE OK: {mid} | {len(r.content)} bytes")
+                else:
+                    data = r.json()
+                    imgs = data.get("images", [])
+                    if imgs and imgs[0].startswith("data:image"):
+                        img_working.append(f"IMAGE(JSON) {mid}")
+                        print(f"IMAGE OK (JSON): {mid}")
+                        break
+            elif r.status_code == 403:
+                break
+        except Exception as e:
+            print(f"ERR {mid}: {e}")
+        time.sleep(1)
+
+# --- CHAT MODELS (input format) ---
+chat_pats = ['qwen3.5', 'qwen2.5', 'qwen-3', 'qwen3', 'gemma', 'glm-4', 'glm-5', 'deepseek', 'mistral', 'llama', 'stepfun', 'kimi', 'minimax', 'nemotron', 'sao10k', 'nousresearch', 'olmo', 'hermes', 'mythomax', 'phi', 'openai/gpt-oss']
+chat_models = [m for m in models if any(p in m.lower() for p in chat_pats)]
+print(f"Chat models: {len(chat_models)}")
+
+chat_working = []
+for mid in chat_models:
+    url = f"{API}/inference/{mid}"
+    for pl in [{"input": "What is 2+2? Answer in 3 words.", "max_tokens": 30, "temperature": 0.1}, {"input": "Hi"}]:
+        try:
+            r = session.post(url, json=pl, timeout=120)
+            if r.status_code == 200:
+                data = r.json()
+                res = str(data.get("results", data.get("output", data.get("generated_text", str(data)[:100]))))
+                inf = data.get("inference_status", {})
+                chat_working.append(f"CHAT {mid} | {res[:80]} | {inf.get('runtime_ms','?')}ms | ${inf.get('cost','?')}")
+                print(f"CHAT OK: {mid} | {res[:80]}")
+                break
+            elif r.status_code == 403:
+                break
+        except Exception as e:
+            print(f"ERR {mid}: {e}")
+        time.sleep(1)
+
+# --- EMBEDDING MODELS ---
+emb_pats = ['bge', 'e5-', 'gte-', 'text2vec', 'embeddinggemma', 'qwen3-embedding', 'qwen-embedding', 'llama-nemotron-embed', 'all-minilm', 'all-mpnet', 'multi-qa', 'paraphrase', 'clip-']
+emb_models = [m for m in models if any(p in m.lower() for p in emb_pats)]
+print(f"Embedding models: {len(emb_models)}")
+
+emb_working = []
+for mid in emb_models:
+    url = f"{API}/inference/{mid}"
+    for pl in [{"inputs": "Hello world"}, {"input": "Hello world"}]:
+        try:
+            r = session.post(url, json=pl, timeout=30)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list):
+                    dim = len(data[0]) if data else 0
+                    emb_working.append(f"EMBED {mid} | dim={dim}")
+                    print(f"EMBED OK: {mid} | dim={dim}")
+                    break
+        except:
+            pass
+        time.sleep(0.5)
+
+# --- GEMINI ---
+gemini_models = [m for m in models if 'gemini' in m.lower()]
+print(f"Gemini models: {len(gemini_models)}")
+gem_working = []
+for mid in gemini_models:
+    url = f"{API}/inference/{mid}"
+    try:
+        r = session.post(url, json={"inputs": "Hi"}, timeout=60)
+        if r.status_code == 200:
+            gem_working.append(f"GEMINI {mid} | {str(r.json())[:100]}")
+            print(f"GEMINI OK: {mid}")
+    except:
+        pass
+    time.sleep(1)
+
+# --- OTHER ---
+other = [m for m in models if m not in img_working and m not in chat_working and m not in emb_working and m not in gem_working]
+print(f"Other models: {len(other)}")
+
+# SUMMARY
+total = len(img_working) + len(chat_working) + len(emb_working) + len(gem_working)
+print(f"\n{'='*60}")
+print(f"IMAGE: {len(img_working)} | CHAT: {len(chat_working)} | EMBED: {len(emb_working)} | GEMINI: {len(gem_working)}")
+print(f"TOTAL WORKING: {total}")
+
+with open('deepinfra_scan.txt', 'w') as f:
+    f.write(f"IMAGE: {len(img_working)}\n")
+    for x in img_working: f.write(f"  {x}\n")
+    f.write(f"CHAT: {len(chat_working)}\n")
+    for x in chat_working: f.write(f"  {x}\n")
+    f.write(f"EMBED: {len(emb_working)}\n")
+    for x in emb_working: f.write(f"  {x}\n")
+    f.write(f"GEMINI: {len(gem_working)}\n")
+    for x in gem_working: f.write(f"  {x}\n")
+    f.write(f"TOTAL: {total}\n")
+PYEOF
+      - name: Display results
+        run: cat deepinfra_scan.txt
