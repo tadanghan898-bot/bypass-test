@@ -1,0 +1,673 @@
+name: Unified Cloud Proxy
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider: meshyl, tripo3d, luma, stability, replicate, fal, groq, hf, openai, openrouter, pollinations'
+        required: true
+        type: choice
+        options:
+          - meshyl
+          - tripo3d
+          - luma
+          - stability
+          - replicate
+          - fal
+          - groq
+          - hf
+          - openai
+          - openrouter
+          - pollinations
+      endpoint:
+        description: 'API endpoint path (e.g. /openapi/v2/text-to-3d)'
+        required: true
+        type: string
+      method:
+        description: 'HTTP method'
+        required: true
+        type: choice
+        options:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+      body:
+        description: 'JSON body for POST/PUT requests'
+        required: false
+        type: string
+      api_key:
+        description: 'API key (or leave blank to use stored secrets)'
+        required: false
+        type: string
+      polling:
+        description: 'Enable async polling (true for text-to-3d style tasks)'
+        required: false
+        type: boolean
+        default: false
+      poll_interval:
+        description: 'Polling interval in seconds'
+        required: false
+        type: string
+        default: '10'
+      max_polls:
+        description: 'Max polling attempts'
+        required: false
+        type: string
+        default: '60'
+
+env:
+  MESHY_API_KEY: ${{ secrets.MESHY_MSY_KEY }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+  REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+  FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unified Proxy - Routing
+        id: route
+        run: |
+          echo "=== UNIFIED CLOUD PROXY ==="
+          echo "Provider: ${{ inputs.provider }}"
+          echo "Endpoint: ${{ inputs.endpoint }}"
+          echo "Method: ${{ inputs.method }}"
+          echo "Polling: ${{ inputs.polling }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Run Attempt: ${{ github.run_attempt }}"
+
+          # Route via provider-specific job
+          echo "provider=${{ inputs.provider }}" >> $GITHUB_OUTPUT
+          echo "endpoint=${{ inputs.endpoint }}" >> $GITHUB_OUTPUT
+
+  meshyl:
+    needs: route
+    if: inputs.provider == 'meshyl'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meshy AI Proxy
+        run: |
+          echo "=== MESHY AI PROXY ==="
+          API_KEY="${MESHY_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key provided"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            echo "GET: https://api.meshy.ai${{ inputs.endpoint }}"
+            RESPONSE=$(curl -s -X GET \
+              "https://api.meshy.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -H "X-Api-Version: v2026.04.03.post7" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            echo "POST: https://api.meshy.ai${{ inputs.endpoint }}"
+            BODY='${{ inputs.body }}'
+            RESPONSE=$(curl -s -X POST \
+              "https://api.meshy.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -H "X-Api-Version: v2026.04.03.post7" \
+              -d "$BODY" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > meshy_response.json
+
+          # Write to step summary
+          echo "## Meshy AI Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ inputs.polling }}" = "true" ]; then
+            echo "=== ASYNC POLLING MODE ==="
+            TASK_ID=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id', d.get('task_id', '')))" 2>/dev/null)
+            if [ -n "$TASK_ID" ]; then
+              echo "Task ID: $TASK_ID"
+              echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+              for i in $(seq 1 ${{ inputs.max_polls }}); do
+                sleep ${{ inputs.poll_interval }}
+                STATUS_RESP=$(curl -s "https://api.meshy.ai${{ inputs.endpoint }}/${TASK_ID}" \
+                  -H "Authorization: Bearer $API_KEY" \
+                  -H "X-Api-Version: v2026.04.03.post7" \
+                  --max-time 30)
+                STATUS=$(echo "$STATUS_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status', 'UNKNOWN'))" 2>/dev/null)
+                echo "[$((i * ${{ inputs.poll_interval }}))s] Status: $STATUS"
+                if [ "$STATUS" = "SUCCEEDED" ] || [ "$STATUS" = "completed" ]; then
+                  echo "TASK SUCCEEDED!"
+                  echo "$STATUS_RESP" > meshy_result.json
+                  echo "status=SUCCEEDED" >> $GITHUB_OUTPUT
+                  break
+                elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "FAILED" ]; then
+                  echo "TASK FAILED!"
+                  echo "status=FAILED" >> $GITHUB_OUTPUT
+                  exit 1
+                fi
+              done
+            fi
+          fi
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-proxy-response-${{ github.run_id }}
+          path: meshy_response.json
+          retention-days: 1
+
+  groq:
+    needs: route
+    if: inputs.provider == 'groq'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Groq Proxy
+        run: |
+          echo "=== GROQ PROXY ==="
+          API_KEY="${GROQ_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.groq.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -w "\n%{http_code}" \
+              --max-time 60)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.groq.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 60)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > groq_response.json
+
+          echo "## Groq Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: groq-proxy-response-${{ github.run_id }}
+          path: groq_response.json
+          retention-days: 1
+
+  pollinations:
+    needs: route
+    if: inputs.provider == 'pollinations'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Proxy
+        run: |
+          echo "=== POLLINATIONS PROXY ==="
+
+          # Determine base URL based on endpoint
+          ENDPOINT="${{ inputs.endpoint }}"
+          if echo "$ENDPOINT" | grep -q "image-to-3d"; then
+            BASE_URL="https://image-to-3d.pollinations.ai"
+            EP_PATH=$(echo "$ENDPOINT" | sed 's|^/||')
+          elif echo "$ENDPOINT" | grep -q "/image"; then
+            BASE_URL="https://image.pollinations.ai"
+            EP_PATH=$(echo "$ENDPOINT" | sed 's|^/||')
+          else
+            BASE_URL="https://text.pollinations.ai"
+            EP_PATH=$(echo "$ENDPOINT" | sed 's|^/||')
+          fi
+
+          echo "Base URL: $BASE_URL"
+          echo "Endpoint: $EP_PATH"
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            FULL_URL="$BASE_URL/$EP_PATH"
+            if [ -n "${{ inputs.body }}" ] && [ "${{ inputs.body }}" != "null" ]; then
+              # Convert JSON body to query params for GET
+              PARAMS=$(echo '${{ inputs.body }}' | python3 -c "import sys,json,urllib.parse; d=json.load(sys.stdin); print('&'.join(f'{k}={urllib.parse.quote(str(v))}' for k,v in d.items()))" 2>/dev/null)
+              FULL_URL="$FULL_URL?$PARAMS"
+            fi
+            echo "GET: $FULL_URL"
+            RESPONSE=$(curl -s -X GET "$FULL_URL" -w "\n%{http_code}" --max-time 120)
+          else
+            echo "POST: $BASE_URL/$EP_PATH"
+            RESPONSE=$(curl -s -X POST \
+              "$BASE_URL/$EP_PATH" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > pollinations_response.json
+
+          echo "## Pollinations Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-proxy-response-${{ github.run_id }}
+          path: pollinations_response.json
+          retention-days: 1
+
+  tripo3d:
+    needs: route
+    if: inputs.provider == 'tripo3d'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tripo3D Proxy
+        run: |
+          echo "=== TRIPO3D PROXY ==="
+          API_KEY="${TRIPO3D_API_KEY:-${{ inputs.api_key }}}"
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.tripo3d.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.tripo3d.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > tripo3d_response.json
+
+          echo "## Tripo3D Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: tripo3d-proxy-response-${{ github.run_id }}
+          path: tripo3d_response.json
+          retention-days: 1
+
+  stability:
+    needs: route
+    if: inputs.provider == 'stability'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stability AI Proxy
+        run: |
+          echo "=== STABILITY AI PROXY ==="
+          API_KEY="${STABILITY_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.stability.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.stability.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > stability_response.json
+
+          echo "## Stability AI Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: stability-proxy-response-${{ github.run_id }}
+          path: stability_response.json
+          retention-days: 1
+
+  replicate:
+    needs: route
+    if: inputs.provider == 'replicate'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Replicate Proxy
+        run: |
+          echo "=== REPLICATE PROXY ==="
+          API_KEY="${REPLICATE_API_TOKEN:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.replicate.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.replicate.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > replicate_response.json
+
+          echo "## Replicate Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: replicate-proxy-response-${{ github.run_id }}
+          path: replicate_response.json
+          retention-days: 1
+
+  fal:
+    needs: route
+    if: inputs.provider == 'fal'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fal AI Proxy
+        run: |
+          echo "=== FAL AI PROXY ==="
+          API_KEY="${FAL_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.fal.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Key $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.fal.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Key $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > fal_response.json
+
+          echo "## Fal AI Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: fal-proxy-response-${{ github.run_id }}
+          path: fal_response.json
+          retention-days: 1
+
+  hf:
+    needs: route
+    if: inputs.provider == 'hf'
+    runs-on: ubuntu-latest
+    steps:
+      - name: HuggingFace Proxy
+        run: |
+          echo "=== HUGGINGFACE PROXY ==="
+          HF_TOKEN_VAL="${HF_TOKEN:-${{ inputs.api_key }}}"
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api-inference.huggingface.co${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $HF_TOKEN_VAL" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api-inference.huggingface.co${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $HF_TOKEN_VAL" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > hf_response.json
+
+          echo "## HuggingFace Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-proxy-response-${{ github.run_id }}
+          path: hf_response.json
+          retention-days: 1
+
+  openai:
+    needs: route
+    if: inputs.provider == 'openai'
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenAI Proxy
+        run: |
+          echo "=== OPENAI PROXY ==="
+          API_KEY="${OPENAI_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.openai.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.openai.com${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > openai_response.json
+
+          echo "## OpenAI Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-proxy-response-${{ github.run_id }}
+          path: openai_response.json
+          retention-days: 1
+
+  openrouter:
+    needs: route
+    if: inputs.provider == 'openrouter'
+    runs-on: ubuntu-latest
+    steps:
+      - name: OpenRouter Proxy
+        run: |
+          echo "=== OPENROUTER PROXY ==="
+          API_KEY="${OPENROUTER_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://openrouter.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -HTTP/2 \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://openrouter.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -HTTP/2 \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > openrouter_response.json
+
+          echo "## OpenRouter Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: openrouter-proxy-response-${{ github.run_id }}
+          path: openrouter_response.json
+          retention-days: 1
+
+  luma:
+    needs: route
+    if: inputs.provider == 'luma'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Luma Labs Proxy
+        run: |
+          echo "=== LUMA LABS PROXY ==="
+          API_KEY="${LUMA_API_KEY:-${{ inputs.api_key }}}"
+
+          if [ "${{ inputs.method }}" = "GET" ]; then
+            RESPONSE=$(curl -s -X GET \
+              "https://api.lumalabs.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            RESPONSE=$(curl -s -X POST \
+              "https://api.lumalabs.ai${{ inputs.endpoint }}" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '${{ inputs.body }}' \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP Status: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > luma_response.json
+
+          echo "## Luma Labs Proxy Result" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP Status:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 2000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-proxy-response-${{ github.run_id }}
+          path: luma_response.json
+          retention-days: 1
