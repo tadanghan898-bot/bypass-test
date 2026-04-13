@@ -1,0 +1,14 @@
+name: Meshy OTP Trigger
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email address'
+        required: true
+        default: ''
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test
+        run: echo "Email: ${{ inputs.email }}"
