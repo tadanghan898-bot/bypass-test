@@ -28,20 +28,6 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Clone AIBLOCKCHAN repo
-        uses: actions/checkout@v4
-        with:
-          repository: hanmaku/AIBLOCKCHAN
-          path: AIBLOCKCHAN
-          sparse-checkout: |
-            testnet_faucet_engine.py
-            blockchain_workflows/
-          sparse-checkout-cone-mode: false
-
-      - name: Check testnet script
-        run: |
-          ls -la AIBLOCKCHAN/testnet_faucet_engine.py 2>/dev/null || echo "FILE NOT FOUND"
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -119,8 +105,12 @@ jobs:
                       block = w.eth.block_number
                       print(f"  [+{name}] {bal:.6f} ETH (block {block})")
                       results[name] = bal
+                  else:
+                      print(f"  [-{name}] NOT CONNECTED")
+                      results[name] = 0
               except Exception as e:
                   print(f"  [-{name}] {str(e)[:40]}")
+                  results[name] = 0
 
           print(f"\n[RESULT] {json.dumps(results)}")
           print("[SUCCESS] Status check complete")
@@ -138,50 +128,42 @@ jobs:
           print(f"[*] Claiming faucets for: {wallet}")
           print()
 
-          # 1. Try Alchemy (if key provided)
+          claimed = 0
+
+          # 1. Alchemy (if key provided)
           if alchemy_key:
               try:
                   r = requests.post('https://api.sepolia.org/api/developer/faucet',
                       json={'address': wallet, 'secret': alchemy_key},
                       headers={'Content-Type': 'application/json'}, timeout=30)
                   if r.status_code == 200:
-                      print(f"  [+] Alchemy Sepolia: SUCCESS")
-                      print(f"      Response: {r.text[:200]}")
+                      print(f"  [+] Alchemy: SUCCESS")
+                      claimed += 1
                   else:
-                      print(f"  [-] Alchemy Sepolia: HTTP {r.status_code}")
-                      print(f"      {r.text[:200]}")
+                      print(f"  [-] Alchemy: HTTP {r.status_code}")
               except Exception as e:
                   print(f"  [-] Alchemy: {e}")
           else:
-              print("  [~] Alchemy: No API key provided (get free at alchemy.com)")
+              print("  [~] Alchemy: No API key (get free at alchemy.com)")
 
-          # 2. Try faucetlink.xyz
-          try:
-              r = requests.get(f'https://www.faucetlink.xyz/api/claim?address={wallet}', timeout=15)
-              print(f"  [~] FaucetLink: HTTP {r.status_code}")
-          except Exception as e:
-              print(f"  [-] FaucetLink: {str(e)[:50]}")
-
-          # 3. Try direct Sepolia faucet
-          try:
-              r = requests.post('https://rpc.sepolia.org',
-                  json={'jsonrpc':'2.0','method':'anvil_setBalance',
-                        'params':[wallet, '0x21E19E0C9BAB2400000'], 'id':1},
-                  headers={'Content-Type':'application/json'}, timeout=15)
-              print(f"  [~] Sepolia RPC: HTTP {r.status_code}")
-          except Exception as e:
-              print(f"  [-] Sepolia RPC: {str(e)[:50]}")
-
-          # 4. Try Paradigm faucet
+          # 2. Paradigm faucet
           try:
               r = requests.post('https://faucet.paradigm.xyz/api/claim',
                   json={'address': wallet, 'chain_id': 11155111},
                   headers={'Content-Type': 'application/json'}, timeout=15)
-              print(f"  [~] Paradigm: HTTP {r.status_code} - {r.text[:100]}")
+              print(f"  [~] Paradigm: HTTP {r.status_code}")
           except Exception as e:
               print(f"  [-] Paradigm: {str(e)[:50]}")
 
-          print("\n[SUCCESS] Faucet claim attempt complete")
+          # 3. Superchain testnet faucet
+          try:
+              r = requests.get(f'https://app.optimism.io/api/faucet?address={wallet}', timeout=15)
+              print(f"  [~] Superchain: HTTP {r.status_code}")
+          except Exception as e:
+              print(f"  [-] Superchain: {str(e)[:50]}")
+
+          print(f"\n[CLAIMED] {claimed} faucet(s)")
+          print("[SUCCESS] Faucet claim complete")
           PYEOF
 
       - name: Full routine
@@ -191,7 +173,6 @@ jobs:
           from web3 import Web3
           import requests
           import json
-          import time
 
           wallet = '''${{ inputs.wallet_address }}'''.strip()
           alchemy_key = '''${{ inputs.alchemy_key }}'''.strip()
@@ -208,10 +189,9 @@ jobs:
               'Mode Sepolia': 'https://sepolia.mode.network',
           }
 
-          # STEP 1: Claim faucets
+          # STEP 1: Faucet claims
           print("[STEP 1] Faucet claims...")
           faucets_claimed = 0
-
           if alchemy_key:
               try:
                   r = requests.post('https://api.sepolia.org/api/developer/faucet',
@@ -220,9 +200,11 @@ jobs:
                       print(f"  [+] Alchemy: SUCCESS")
                       faucets_claimed += 1
                   else:
-                      print(f"  [-] Alchemy: {r.status_code}")
+                      print(f"  [-] Alchemy: HTTP {r.status_code}")
               except Exception as e:
-                  print(f"  [-] Alchemy: {str(e)[:50]}")
+                  print(f"  [-] Alchemy: {e}")
+          else:
+              print("  [~] Alchemy: No API key (get free at alchemy.com)")
 
           # STEP 2: Check all balances
           print("\n[STEP 2] Balance check...")
@@ -234,33 +216,30 @@ jobs:
                       bal = w.eth.get_balance(wallet) / 1e18
                       block = w.eth.block_number
                       print(f"  [+{name}] {bal:.6f} ETH (block {block})")
-                      balances[name] = {'balance': bal, 'block': block, 'connected': True}
+                      balances[name] = bal
                   else:
                       print(f"  [-{name}] NOT CONNECTED")
-                      balances[name] = {'balance': 0, 'connected': False}
+                      balances[name] = 0
               except Exception as e:
                   print(f"  [-{name}] ERROR")
-                  balances[name] = {'balance': 0, 'connected': False}
+                  balances[name] = 0
 
           # STEP 3: Activity on funded networks
           print("\n[STEP 3] Network activity...")
-          from eth_account import Account
-          acc = Account.create()  # This creates a temp wallet for testing
-
-          funded = {k: v for k, v in balances.items() if v['connected'] and v['balance'] > 0.001}
+          funded = [k for k, v in balances.items() if v > 0.001]
           if funded:
-              print(f"  Funded networks: {list(funded.keys())}")
+              print(f"  Funded networks: {funded}")
               print("  (Need private key to sign on-chain transactions)")
           else:
               print("  No funded networks. Claim faucets first.")
 
           # Output summary
-          total = sum(v['balance'] for v in balances.values())
+          total = sum(balances.values())
           print(f"\n[SUMMARY]")
-          print(f"  Networks connected: {sum(1 for v in balances.values() if v['connected'])}/{len(RPCS)}")
+          print(f"  Networks connected: {sum(1 for v in balances.values() if v >= 0)}/{len(RPCS)}")
           print(f"  Networks funded: {len(funded)}")
           print(f"  Total ETH: {total:.6f}")
           print(f"  Faucets claimed: {faucets_claimed}")
-          print(f"\n[RESULT] {json.dumps({'balances': balances, 'total': total, 'funded': list(funded.keys())})}")
+          print(f"\n[RESULT] {json.dumps({'balances': balances, 'total': total, 'funded': funded, 'claimed': faucets_claimed})}")
           print("[SUCCESS] Full routine complete")
           PYEOF
