@@ -1,0 +1,199 @@
+name: DeepInfra Free Model Scan
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan-deepinfra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Scan DeepInfra Models
+        run: |
+          python << 'PYEOF'
+import requests
+import json
+import time
+
+API_BASE = "https://api.deepinfra.com/v1"
+
+session = requests.Session()
+session.headers.update({"Authorization": "Bearer "})
+
+results = {}
+
+# ======= FETCH ALL MODELS =======
+print("Fetching model list...")
+resp = session.get(f"{API_BASE}/models", timeout=30)
+all_models = resp.json().get('data', [])
+model_ids = [m['id'] for m in all_models]
+print(f"Total models: {len(model_ids)}")
+
+# ======= IMAGE MODELS =======
+print("\n=== IMAGE MODELS ===")
+image_patterns = ['flux', 'sdxl', 'bria/', 'wan', 'seed', 'qwen-image', 'janus', 'fibo', 'remove_background', 'blur_background', 'expand', 'replace_background', 'enhance', 'erase_foreground', 'p-image', 'creative', 'crystal', 'stabilityai']
+image_models = [m for m in model_ids if any(p in m.lower() for p in image_patterns)]
+print(f"Testing {len(image_models)} image models")
+
+working_images = []
+for model_id in image_models:
+    url = f"{API_BASE}/inference/{model_id}"
+    for payload in [
+        {"prompt": "a beautiful sunset over mountains", "num_inference_steps": 20},
+        {"prompt": "a cat", "num_steps": 20},
+    ]:
+        try:
+            r = session.post(url, json=payload, timeout=60)
+            if r.status_code == 200:
+                ct = r.headers.get('Content-Type', '')
+                if 'image' in ct:
+                    working_images.append(f"IMAGE: {model_id} | {len(r.content)} bytes")
+                    print(f"WORKING: {model_id} | {len(r.content)} bytes")
+                else:
+                    data = r.json()
+                    imgs = data.get('images', [])
+                    if imgs:
+                        img_data = imgs[0]
+                        if img_data.startswith('data:image'):
+                            working_images.append(f"IMAGE(JSON): {model_id}")
+                            print(f"WORKING: {model_id} (JSON)")
+                            break
+            elif r.status_code == 403:
+                break
+            else:
+                pass
+        except Exception as e:
+            print(f"Error {model_id}: {e}")
+        time.sleep(1)
+
+print(f"Image models working: {len(working_images)}")
+
+# ======= CHAT MODELS (input field) =======
+print("\n=== CHAT MODELS (input format) ===")
+chat_patterns = ['qwen3.5', 'qwen2.5', 'qwen-3', 'qwen3', 'gemma', 'glm-4', 'glm-5', 'deepseek', 'mistral', 'llama', 'stepfun', 'kimi', 'minimax', 'nemotron']
+chat_models = [m for m in model_ids if any(p in m.lower() for p in chat_patterns)]
+print(f"Testing {len(chat_models)} chat models")
+
+working_chat = []
+for model_id in chat_models:
+    url = f"{API_BASE}/inference/{model_id}"
+    for payload in [
+        {"input": "What is 2+2? Answer directly in 3 words.", "max_tokens": 50, "temperature": 0.1},
+        {"input": "Hi", "max_tokens": 20},
+    ]:
+        try:
+            r = session.post(url, json=payload, timeout=120)
+            if r.status_code == 200:
+                data = r.json()
+                result = ''
+                for key in ['results', 'output', 'generated_text', 'text']:
+                    if key in data:
+                        result = str(data[key])
+                        break
+                inf = data.get('inference_status', {})
+                working_chat.append(f"CHAT: {model_id} | {result[:100]} | {inf.get('runtime_ms','?')}ms | ${inf.get('cost','?')}")
+                print(f"WORKING: {model_id} | {result[:80]} | {inf.get('runtime_ms','?')}ms")
+                break
+            elif r.status_code == 403:
+                break
+            else:
+                pass
+        except Exception as e:
+            print(f"Error {model_id}: {e}")
+        time.sleep(1)
+
+print(f"Chat models working: {len(working_chat)}")
+
+# ======= EMBEDDING MODELS =======
+print("\n=== EMBEDDING MODELS ===")
+embed_patterns = ['bge', 'e5-', 'gte-', 'text2vec', 'embeddinggemma', 'qwen3-embedding', 'qwen-embedding', 'llama-nemotron-embed', 'all-minilm', 'all-mpnet', 'multi-qa', 'paraphrase']
+embed_models = [m for m in model_ids if any(p in m.lower() for p in embed_patterns)]
+print(f"Testing {len(embed_models)} embedding models")
+
+working_embed = []
+for model_id in embed_models:
+    url = f"{API_BASE}/inference/{model_id}"
+    for payload in [{"inputs": "Hello world"}, {"input": "Hello world"}]:
+        try:
+            r = session.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list):
+                    dim = len(data[0]) if data else 0
+                    working_embed.append(f"EMBED: {model_id} | dim={dim}")
+                    print(f"WORKING: {model_id} | dim={dim}")
+                    break
+            elif r.status_code == 403:
+                break
+        except Exception as e:
+            pass
+        time.sleep(1)
+
+print(f"Embedding models working: {len(working_embed)}")
+
+# ======= GEMINI MODELS =======
+print("\n=== GEMINI MODELS ===")
+gemini_models = [m for m in model_ids if 'gemini' in m.lower()]
+print(f"Testing {len(gemini_models)} gemini models")
+working_gemini = []
+for model_id in gemini_models:
+    url = f"{API_BASE}/inference/{model_id}"
+    for payload in [
+        {"inputs": "What is 2+2?"},
+        {"input": "What is 2+2?"},
+    ]:
+        try:
+            r = session.post(url, json=payload, timeout=60)
+            if r.status_code == 200:
+                data = r.json()
+                working_gemini.append(f"GEMINI: {model_id} | {str(data)[:100]}")
+                print(f"WORKING: {model_id}")
+                break
+            elif r.status_code == 403:
+                break
+        except Exception as e:
+            pass
+        time.sleep(1)
+
+print(f"Gemini models working: {len(working_gemini)}")
+
+# ======= SUMMARY =======
+print("\n" + "="*80)
+print("FINAL RESULTS")
+print("="*80)
+print(f"IMAGE WORKING: {len(working_images)}")
+for x in working_images: print(f"  {x}")
+print(f"CHAT WORKING: {len(working_chat)}")
+for x in working_chat: print(f"  {x}")
+print(f"EMBEDDING WORKING: {len(working_embed)}")
+for x in working_embed: print(f"  {x}")
+print(f"GEMINI WORKING: {len(working_gemini)}")
+for x in working_gemini: print(f"  {x}")
+print(f"\nTOTAL FREE: {len(working_images) + len(working_chat) + len(working_embed) + len(working_gemini)}")
+
+# Save to file
+with open('deepinfra_results.txt', 'w') as f:
+    f.write("DEEPINFRA FREE MODEL SCAN RESULTS\n")
+    f.write("="*80 + "\n")
+    f.write(f"IMAGE WORKING: {len(working_images)}\n")
+    for x in working_images: f.write(f"  {x}\n")
+    f.write(f"CHAT WORKING: {len(working_chat)}\n")
+    for x in working_chat: f.write(f"  {x}\n")
+    f.write(f"EMBEDDING WORKING: {len(working_embed)}\n")
+    for x in working_embed: f.write(f"  {x}\n")
+    f.write(f"GEMINI WORKING: {len(working_gemini)}\n")
+    for x in working_gemini: f.write(f"  {x}\n")
+    f.write(f"\nTOTAL FREE: {len(working_images) + len(working_chat) + len(working_embed) + len(working_gemini)}\n")
+PYEOF
+
+      - name: Show results
+        run: cat deepinfra_results.txt
