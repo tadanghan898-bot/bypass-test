@@ -1,0 +1,117 @@
+name: Balance Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      wallet_address:
+        description: 'Wallet address to check'
+        required: true
+        type: string
+      skip_cleanup:
+        description: 'Internal'
+        required: false
+        type: string
+        default: 'false'
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install web3 requests
+
+      - name: Check Balances
+        run: |
+          python3 << 'PYEOF'
+          import requests
+          from web3 import Web3
+
+          wallet = '''${{ inputs.wallet_address }}'''.strip()
+          print(f"[*] Checking balances for: {wallet}")
+
+          RPCS = {
+              'mainnet': 'https://eth.llamarpc.com',
+              'base': 'https://mainnet.base.org',
+              'linea': 'https://rpc.linea.build',
+              'zksync': 'https://mainnet.era.zksync.dev',
+              'scroll': 'https://rpc.scroll.io',
+              'blast': 'https://rpc.blast.io',
+              'arbitrum': 'https://arb1.arbitrum.io/rpc',
+              'optimism': 'https://mainnet.optimism.io',
+              'polygon': 'https://polygon-rpc.com',
+          }
+
+          NATIVE_TOKENS = {
+              'mainnet': 'ETH', 'base': 'ETH', 'linea': 'ETH',
+              'zksync': 'ETH', 'scroll': 'ETH', 'blast': 'ETH',
+              'arbitrum': 'ETH', 'optimism': 'ETH', 'polygon': 'MATIC',
+          }
+
+          total_usd = 0.0
+          prices = {'ETH': 3500, 'MATIC': 0.8, 'USDC': 1, 'USDT': 1}
+
+          for network, rpc in RPCS.items():
+              try:
+                  w = Web3(Web3.HTTPProvider(rpc, request_kwargs={'timeout': 10}))
+                  if not w.is_connected():
+                      continue
+
+                  addr = Web3.to_checksum_address(wallet)
+                  try:
+                      bal = w.eth.get_balance(addr) / 1e18
+                  except:
+                      bal = 0
+
+                  if bal > 0.0001:
+                      native = NATIVE_TOKENS.get(network, 'ETH')
+                      price = prices.get(native, 3500)
+                      usd = bal * price
+                      total_usd += usd
+                      print(f"  [+{network}] {native}: {bal:.6f} (${usd:.2f})")
+
+                  # Check common tokens
+                  TOKENS = {
+                      'USDC': {'mainnet': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+                               'base': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'},
+                      'USDT': {'mainnet': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+                               'arbitrum': '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'},
+                  }
+
+                  erc20_abi = [
+                      {"type": "function", "name": "balanceOf", "inputs": [{"name": "_owner", "type": "address"}],
+                       "outputs": [{"name": "balance", "type": "uint256"}], "stateMutability": "view"},
+                      {"type": "function", "name": "decimals", "inputs": [], "outputs": [{"name": "", "type": "uint8"}], "stateMutability": "view"},
+                  ]
+
+                  for token, addrs in TOKENS.items():
+                      token_addr = addrs.get(network)
+                      if not token_addr:
+                          continue
+                      try:
+                          c = w.eth.contract(Web3.to_checksum_address(token_addr), abi=erc20_abi)
+                          dec = c.functions.decimals().call()
+                          bal_t = c.functions.balanceOf(addr).call() / (10 ** dec)
+                          if bal_t > 0.001:
+                              print(f"  [+{network}] {token}: {bal_t:.6f}")
+                              total_usd += bal_t
+                      except:
+                          pass
+
+              except Exception as e:
+                  print(f"  [-{network}] Error: {str(e)[:50]}")
+
+          print(f"\n[+] TOTAL PORTFOLIO: ${total_usd:.2f}")
+          print(f"[SUCCESS] Balance check completed")
+          print(f"::set-output name=total_usd::{total_usd}")
+          PYEOF

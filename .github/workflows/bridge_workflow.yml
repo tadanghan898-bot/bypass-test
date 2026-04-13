@@ -1,0 +1,191 @@
+name: Blockchain Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Target L2 network (base, linea, zksync, scroll, blast)'
+        required: true
+        type: choice
+        options:
+          - base
+          - linea
+          - zksync
+          - scroll
+          - blast
+          - arbitrum
+          - optimism
+      amount:
+        description: 'ETH amount to bridge'
+        required: true
+        type: string
+        default: '0.001'
+      wallet_key:
+        description: 'Private key or mnemonic'
+        required: true
+        type: string
+      bridge_type:
+        description: 'Bridge type'
+        required: false
+        type: choice
+        options:
+          - owlto
+          - across
+          - orbiter
+          - native
+        default: 'owlto'
+      skip_cleanup:
+        description: 'Skip cleanup (internal)'
+        required: false
+        type: string
+        default: 'false'
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install web3 eth-account eth-abi requests
+
+      - name: Run Bridge
+        env:
+          WALLET_KEY: ${{ inputs.wallet_key }}
+        run: |
+          python3 << 'PYEOF'
+          import os
+          import sys
+          from web3 import Web3
+          from eth_account import Account
+          import eth_abi
+
+          wallet_key = os.environ.get('WALLET_KEY', '')
+          network = '''${{ inputs.network }}'''
+          amount = float(''''${{ inputs.amount }}''')
+          bridge_type = '''${{ inputs.bridge_type }}'''
+
+          print(f"[*] Initializing wallet...")
+          if len(wallet_key.split()) > 1:
+              Account.enable_unaudited_hdwallet_features()
+              account = Account.from_mnemonic(wallet_key)
+          else:
+              account = Account.from_key(wallet_key)
+
+          address = account.address
+          print(f"[+] Address: {address}")
+
+          # RPC endpoints (Azure = no ISP block)
+          RPCS = {
+              'mainnet': 'https://eth.llamarpc.com',
+              'base': 'https://mainnet.base.org',
+              'linea': 'https://rpc.linea.build',
+              'zksync': 'https://mainnet.era.zksync.dev',
+              'scroll': 'https://rpc.scroll.io',
+              'blast': 'https://rpc.blast.io',
+              'arbitrum': 'https://arb1.arbitrum.io/rpc',
+              'optimism': 'https://mainnet.optimism.io',
+          }
+
+          w = Web3(Web3.HTTPProvider(RPCS['mainnet']))
+          print(f"[+] Connected: {w.is_connected()}")
+
+          bal = w.eth.get_balance(address) / 1e18
+          print(f"[+] Balance: {bal:.4f} ETH")
+
+          if bal < amount:
+              print(f"[!] Insufficient balance")
+              sys.exit(1)
+
+          # Bridge contract addresses
+          contracts = {
+              'owlto': '0x897e460D452d55C280D6C9FDe99d7388F2E3D2b4',
+              'across': '0x9295EE3d8a2DaB84F83Ac9fC0F2B6e39E4A8d9b7',
+              'orbiter': '0x80aC943153c8B4F1F3AD8CAE0e9F6cB6F9D8C7E2a',
+          }
+
+          chain_ids = {
+              'base': 8453, 'linea': 59144, 'zksync': 324,
+              'scroll': 534352, 'blast': 81457, 'arbitrum': 42161, 'optimism': 10,
+          }
+
+          if bridge_type not in contracts:
+              print(f"[!] Unknown bridge type: {bridge_type}")
+              sys.exit(1)
+
+          contract = contracts[bridge_type]
+          dest_chain = chain_ids.get(network, 1)
+
+          print(f"[*] Bridging {amount} ETH to {network} via {bridge_type}...")
+
+          if bridge_type == 'owlto':
+              data = '0x' + eth_abi.encode(
+                  ['address', 'uint256'],
+                  [Web3.to_checksum_address(address), dest_chain]
+              ).hex()
+          elif bridge_type == 'across':
+              data = '0x' + eth_abi.encode(
+                  ['uint32', 'address', 'uint256', 'uint24'],
+                  [dest_chain, Web3.to_checksum_address(address),
+                   int(amount * 1e18), 3000]
+              ).hex()
+          elif bridge_type == 'orbiter':
+              data = '0x' + eth_abi.encode(
+                  ['address', 'uint256'],
+                  [Web3.to_checksum_address(address), dest_chain]
+              ).hex()
+          else:
+              data = '0x'
+
+          tx = {
+              'from': Web3.to_checksum_address(address),
+              'to': Web3.to_checksum_address(contract),
+              'value': int(amount * 1e18),
+              'data': data,
+              'nonce': w.eth.get_transaction_count(Web3.to_checksum_address(address)),
+              'gasPrice': w.eth.gas_price,
+              'chainId': 1,
+          }
+
+          try:
+              tx['gas'] = w.eth.estimate_gas(tx)
+          except:
+              tx['gas'] = 150000
+
+          signed = account.sign_transaction(tx)
+          receipt = w.eth.send_raw_transaction(signed.raw_transaction)
+          tx_hash = receipt.hex()
+          print(f"[+] TX SENT: {tx_hash}")
+          print(f"[+] EXPLORER: https://etherscan.io/tx/{tx_hash}")
+
+          # Wait for confirmation
+          for i in range(30):
+              try:
+                  r = w.eth.get_transaction_receipt(tx_hash)
+                  if r and r.get('blockNumber'):
+                      print(f"[+] CONFIRMED in block {r['blockNumber']}")
+                      gas_used = r['gasUsed'] * r['effectiveGasPrice'] / 1e18
+                      print(f"[+] GAS: {gas_used:.6f} ETH")
+                      print(f"[SUCCESS] Bridge completed successfully")
+                      break
+              except:
+                  pass
+              import time
+              time.sleep(1)
+
+          print(f"::set-output name=tx_hash::{tx_hash}")
+          print(f"::set-output name=success::true")
+          PYEOF
+
+      - name: Result
+        run: |
+          echo "Bridge workflow completed"

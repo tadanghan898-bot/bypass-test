@@ -1,0 +1,163 @@
+name: Staking
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network'
+        required: false
+        type: string
+        default: 'mainnet'
+      protocol:
+        description: 'Protocol (lido, etherfi, renzo)'
+        required: true
+        type: choice
+        options:
+          - lido
+          - etherfi
+          - renzo
+      amount:
+        description: 'ETH amount'
+        required: true
+        type: string
+        default: '0.01'
+      wallet_key:
+        description: 'Private key or mnemonic'
+        required: true
+        type: string
+      skip_cleanup:
+        description: 'Internal'
+        required: false
+        type: string
+        default: 'false'
+
+jobs:
+  stake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install web3 eth-account eth-abi
+
+      - name: Run Staking
+        env:
+          WALLET_KEY: ${{ inputs.wallet_key }}
+        run: |
+          python3 << 'PYEOF'
+          import os
+          import time
+          from web3 import Web3
+          from eth_account import Account
+          import eth_abi
+
+          wallet_key = os.environ.get('WALLET_KEY', '')
+          network = '''${{ inputs.network }}'''
+          protocol = '''${{ inputs.protocol }}'''
+          amount = float(''''${{ inputs.amount }}''')
+
+          print(f"[*] Initializing...")
+          if len(wallet_key.split()) > 1:
+              Account.enable_unaudited_hdwallet_features()
+              account = Account.from_mnemonic(wallet_key)
+          else:
+              account = Account.from_key(wallet_key)
+
+          address = account.address
+          print(f"[+] Address: {address}")
+
+          RPC = 'https://eth.llamarpc.com'
+          w = Web3(Web3.HTTPProvider(RPC))
+          print(f"[+] Connected: {w.is_connected()}")
+
+          bal = w.eth.get_balance(address) / 1e18
+          print(f"[+] Balance: {bal:.4f} ETH")
+
+          if bal < amount:
+              print(f"[!] Insufficient balance")
+              sys.exit(1)
+
+          # Staking contracts
+          PROTOCOLS = {
+              'lido': {
+                  'contract': '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84',
+                  'name': 'Lido',
+                  'output': 'stETH',
+              },
+              'etherfi': {
+                  'contract': '0x308861A430be83cB8180326Cd4Ef06FDE98B8C6',
+                  'name': 'ether.fi',
+                  'output': 'eETH',
+              },
+              'renzo': {
+                  'contract': '0x74C3B9B64c98d29e4b6E795cC27f5B4b1c0D36E',
+                  'name': 'Renzo',
+                  'output': 'ezETH',
+              },
+          }
+
+          if protocol not in PROTOCOLS:
+              print(f"[!] Unknown protocol: {protocol}")
+              sys.exit(1)
+
+          cfg = PROTOCOLS[protocol]
+          contract = cfg['contract']
+
+          print(f"[*] Staking {amount} ETH via {cfg['name']}...")
+
+          if protocol == 'lido':
+              # Lido: submit(address _referral)
+              data = '0x' + eth_abi.encode(
+                  ['address'],
+                  [Web3.to_checksum_address(address)]
+              ).hex()
+          else:
+              data = '0x'
+
+          tx = {
+              'from': Web3.to_checksum_address(address),
+              'to': Web3.to_checksum_address(contract),
+              'value': int(amount * 1e18),
+              'data': data,
+              'nonce': w.eth.get_transaction_count(Web3.to_checksum_address(address)),
+              'gasPrice': w.eth.gas_price,
+              'chainId': 1,
+          }
+
+          try:
+              tx['gas'] = w.eth.estimate_gas(tx)
+          except:
+              tx['gas'] = 150000
+
+          signed = account.sign_transaction(tx)
+          receipt = w.eth.send_raw_transaction(signed.raw_transaction)
+          tx_hash = receipt.hex()
+          print(f"[+] TX SENT: {tx_hash}")
+          print(f"[+] EXPLORER: https://etherscan.io/tx/{tx_hash}")
+
+          for i in range(30):
+              try:
+                  r = w.eth.get_transaction_receipt(tx_hash)
+                  if r and r.get('blockNumber'):
+                      gas_used = r['gasUsed'] * r['effectiveGasPrice'] / 1e18
+                      print(f"[+] CONFIRMED in block {r['blockNumber']}")
+                      print(f"[+] GAS: {gas_used:.6f} ETH")
+                      print(f"[+] You received: {amount} {cfg['output']}")
+                      print(f"[SUCCESS] Staking completed successfully")
+                      break
+              except:
+                  pass
+              time.sleep(1)
+
+          print(f"::set-output name=tx_hash::{tx_hash}")
+          print(f"::set-output name=success::true")
+          PYEOF

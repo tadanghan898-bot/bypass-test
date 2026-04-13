@@ -1,0 +1,165 @@
+name: DEX Swap
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network'
+        required: true
+        type: string
+        default: 'mainnet'
+      from_token:
+        description: 'From token'
+        required: true
+        type: string
+        default: 'ETH'
+      to_token:
+        description: 'To token'
+        required: true
+        type: string
+        default: 'USDC'
+      amount:
+        description: 'Amount'
+        required: true
+        type: string
+        default: '0.01'
+      wallet_key:
+        description: 'Private key or mnemonic'
+        required: true
+        type: string
+      dex:
+        description: 'DEX Aggregator'
+        required: false
+        type: choice
+        options:
+          - 1inch
+          - 0x
+          - paraswap
+        default: '1inch'
+
+jobs:
+  swap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install web3 eth-account eth-abi requests
+
+      - name: Run Swap
+        env:
+          WALLET_KEY: ${{ inputs.wallet_key }}
+        run: |
+          python3 << 'PYEOF'
+          import os
+          import requests
+          from web3 import Web3
+          from eth_account import Account
+
+          wallet_key = os.environ.get('WALLET_KEY', '')
+          network = '''${{ inputs.network }}'''
+          from_token = '''${{ inputs.from_token }}'''
+          to_token = '''${{ inputs.to_token }}'''
+          amount = float(''''${{ inputs.amount }}''')
+          dex = '''${{ inputs.dex }}'''
+
+          print(f"[*] Initializing wallet...")
+          if len(wallet_key.split()) > 1:
+              Account.enable_unaudited_hdwallet_features()
+              account = Account.from_mnemonic(wallet_key)
+          else:
+              account = Account.from_key(wallet_key)
+
+          address = account.address
+          print(f"[+] Address: {address}")
+
+          RPCS = {
+              'mainnet': 'https://eth.llamarpc.com',
+              'base': 'https://mainnet.base.org',
+              'linea': 'https://rpc.linea.build',
+              'zksync': 'https://mainnet.era.zksync.dev',
+              'scroll': 'https://rpc.scroll.io',
+              'arbitrum': 'https://arb1.arbitrum.io/rpc',
+              'optimism': 'https://mainnet.optimism.io',
+          }
+
+          w = Web3(Web3.HTTPProvider(RPCS.get(network, RPCS['mainnet'])))
+          print(f"[+] Network: {network}, Connected: {w.is_connected()}")
+
+          # Token addresses
+          TOKENS = {
+              'mainnet': {
+                  'ETH': '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+                  'WETH': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+                  'USDC': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+                  'USDT': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+              },
+              'base': {
+                  'ETH': '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+                  'WETH': '0x4200000000000000000000000000000000000006',
+                  'USDC': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+              },
+          }
+
+          chain_ids = {
+              'mainnet': 1, 'base': 8453, 'linea': 59144,
+              'zksync': 324, 'scroll': 534352, 'arbitrum': 42161,
+              'optimism': 10,
+          }
+
+          src_token = TOKENS.get(network, TOKENS['mainnet']).get(from_token, TOKENS['mainnet'].get(from_token))
+          dst_token = TOKENS.get(network, TOKENS['mainnet']).get(to_token, TOKENS['mainnet'].get(to_token))
+
+          if not src_token or not dst_token:
+              print(f"[!] Token not found: {from_token} or {to_token}")
+              sys.exit(1)
+
+          print(f"[*] Swapping {amount} {from_token} -> {to_token} on {network} via {dex}")
+
+          if dex == '1inch':
+              chain_id = chain_ids.get(network, 1)
+              url = f"https://api.1inch.dev/swap/v6.0/{chain_id}/swap"
+              params = {
+                  'src': src_token,
+                  'dst': dst_token,
+                  'amount': str(int(amount * 1e18)),
+                  'from': address,
+                  'slippage': '0.5',
+              }
+              resp = requests.get(url, params=params, timeout=30)
+              if resp.status_code == 200:
+                  data = resp.json()
+                  if 'tx' in data:
+                      tx_data = data['tx']
+                      tx = {
+                          'from': Web3.to_checksum_address(address),
+                          'to': Web3.to_checksum_address(tx_data['to']),
+                          'data': tx_data['data'],
+                          'value': int(tx_data.get('value', 0)),
+                          'gasPrice': w.eth.gas_price,
+                          'nonce': w.eth.get_transaction_count(Web3.to_checksum_address(address)),
+                          'chainId': chain_id,
+                      }
+                      signed = account.sign_transaction(tx)
+                      receipt = w.eth.send_raw_transaction(signed.raw_transaction)
+                      tx_hash = receipt.hex()
+                      print(f"[+] SWAP TX: {tx_hash}")
+                      print(f"[SUCCESS] Swap executed successfully")
+                  else:
+                      print(f"[!] 1inch error: {data.get('errorCode', 'unknown')}")
+              else:
+                  print(f"[!] API error: {resp.status_code}")
+          else:
+              print(f"[!] DEX {dex} not implemented in workflow")
+
+          print(f"::set-output name=success::true")
+          PYEOF
