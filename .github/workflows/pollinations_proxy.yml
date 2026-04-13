@@ -1,0 +1,257 @@
+name: Pollinations AI Dedicated Proxy
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action: text, image, image_to_3d, video, audio'
+        required: true
+        type: choice
+        options:
+          - text
+          - image
+          - image_to_3d
+          - video
+          - audio
+      prompt:
+        description: 'Text prompt / message'
+        required: false
+        type: string
+      image_url:
+        description: 'Image URL (for image-to-3d)'
+        required: false
+        type: string
+      negative_prompt:
+        description: 'Negative prompt (for image)'
+        required: false
+        type: string
+      model:
+        description: 'Model name (e.g. flux, turbo, deepseek)'
+        required: false
+        type: string
+      width:
+        description: 'Image width'
+        required: false
+        type: string
+        default: '1024'
+      height:
+        description: 'Image height'
+        required: false
+        type: string
+        default: '1024'
+      seed:
+        description: 'Seed (optional, random if omitted)'
+        required: false
+        type: string
+      steps:
+        description: 'Steps (for image)'
+        required: false
+        type: string
+        default: '30'
+      n:
+        description: 'Number of images'
+        required: false
+        type: string
+        default: '1'
+
+jobs:
+  text:
+    if: inputs.action == 'text'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Text/Chat
+        run: |
+          echo "=== POLLINATIONS TEXT ==="
+          PROMPT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''${{ inputs.prompt }}'''))" 2>/dev/null || python3 -c "import sys; print(sys.stdin.read().strip().replace(' ','%20'))" <<< "${{ inputs.prompt }}")
+          MODEL="${{ inputs.model }}"
+          if [ -z "$MODEL" ]; then
+            URL="https://text.pollinations.ai/$PROMPT"
+          else
+            URL="https://text.pollinations.ai/$PROMPT?model=$MODEL"
+          fi
+          echo "URL: $URL"
+
+          RESPONSE=$(curl -s -X GET "$URL" \
+            -w "\n%{http_code}" \
+            --max-time 120)
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > response.txt
+
+          echo "## Pollinations Text" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-text-${{ github.run_id }}
+          path: response.txt
+          retention-days: 1
+
+  image:
+    if: inputs.action == 'image'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Image Generation
+        run: |
+          echo "=== POLLINATIONS IMAGE ==="
+          PROMPT=$(python3 -c "
+import sys, urllib.parse
+p = sys.stdin.read().strip()
+# Handle special chars
+p_enc = urllib.parse.quote(p)
+print(p_enc)
+" <<< "${{ inputs.prompt }}")
+          echo "Prompt: $PROMPT"
+          echo "Width: ${{ inputs.width }} Height: ${{ inputs.height }}"
+
+          URL="https://image.pollinations.ai/$PROMPT?width=${{ inputs.width }}&height=${{ inputs.height }}&n=${{ inputs.n }}&steps=${{ inputs.steps }}"
+          if [ -n "${{ inputs.negative_prompt }}" ]; then
+            NEG=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''${{ inputs.negative_prompt }}'''))" <<< "${{ inputs.negative_prompt }}")
+            URL="$URL&negative_prompt=$NEG"
+          fi
+          if [ -n "${{ inputs.model }}" ]; then
+            URL="$URL&model=${{ inputs.model }}"
+          fi
+          if [ -n "${{ inputs.seed }}" ]; then
+            URL="$URL&seed=${{ inputs.seed }}"
+          fi
+          echo "URL: $URL"
+
+          # Get image - returns redirect usually
+          curl -s -L -X GET "$URL" \
+            -o image.png \
+            -w "HTTP:%{http_code} SIZE:%{size_download}" \
+            --max-time 120
+
+          echo ""
+          echo "Image saved: $(ls -la image.png 2>/dev/null || echo 'NOT FOUND')"
+
+          echo "## Pollinations Image" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          if [ -f image.png ]; then
+            echo "**Size:** $(ls -la image.png | awk '{print $5}') bytes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Image
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-image-${{ github.run_id }}
+          path: image.png
+          retention-days: 1
+
+  image_to_3d:
+    if: inputs.action == 'image_to_3d'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Image-to-3D
+        run: |
+          echo "=== POLLINATIONS IMAGE-TO-3D ==="
+          echo "Image URL: ${{ inputs.image_url }}"
+          echo "Prompt: ${{ inputs.prompt }}"
+
+          if [ -n "${{ inputs.image_url }}" ]; then
+            # POST with image URL
+            BODY=$(cat <<EOF
+            {
+              "image_url": "${{ inputs.image_url }}"
+            }
+EOF
+            )
+            echo "POST body: $BODY"
+            RESPONSE=$(curl -s -X POST \
+              "https://image-to-3d.pollinations.ai/" \
+              -H "Content-Type: application/json" \
+              -d "$BODY" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          else
+            # GET with prompt
+            PROMPT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''${{ inputs.prompt }}'''))" <<< "${{ inputs.prompt }}")
+            RESPONSE=$(curl -s -X GET \
+              "https://image-to-3d.pollinations.ai/?prompt=$PROMPT" \
+              -w "\n%{http_code}" \
+              --max-time 120)
+          fi
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY"
+          echo "$BODY" > response.json
+
+          echo "## Pollinations Image-to-3D" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | head -c 1000 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-i3d-${{ github.run_id }}
+          path: response.json
+          retention-days: 1
+
+  video:
+    if: inputs.action == 'video'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Video
+        run: |
+          echo "=== POLLINATIONS VIDEO ==="
+          PROMPT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''${{ inputs.prompt }}'''))" <<< "${{ inputs.prompt }}")
+          URL="https://video.pollinations.ai/$PROMPT"
+          echo "URL: $URL"
+          curl -s -L -X GET "$URL" \
+            -o video.mp4 \
+            -w "HTTP:%{http_code} SIZE:%{size_download}" \
+            --max-time 300
+
+          echo ""
+          echo "Video saved: $(ls -la video.mp4 2>/dev/null || echo 'NOT FOUND')"
+
+          echo "## Pollinations Video" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Video
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-video-${{ github.run_id }}
+          path: video.mp4
+          retention-days: 1
+
+  audio:
+    if: inputs.action == 'audio'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pollinations Audio
+        run: |
+          echo "=== POLLINATIONS AUDIO ==="
+          PROMPT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''${{ inputs.prompt }}'''))" <<< "${{ inputs.prompt }}")
+          URL="https://audio.pollinations.ai/$PROMPT"
+          echo "URL: $URL"
+          curl -s -L -X GET "$URL" \
+            -o audio.mp3 \
+            -w "HTTP:%{http_code} SIZE:%{size_download}" \
+            --max-time 120
+
+          echo ""
+          echo "Audio saved: $(ls -la audio.mp3 2>/dev/null || echo 'NOT FOUND')"
+
+          echo "## Pollinations Audio" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Audio
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pollinations-audio-${{ github.run_id }}
+          path: audio.mp3
+          retention-days: 1
