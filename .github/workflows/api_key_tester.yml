@@ -1,0 +1,92 @@
+name: API KEY TESTER v2
+on:
+  workflow_dispatch:
+
+jobs:
+  test-openai:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test OpenAI
+        run: |
+          echo "=== OPENAI API TEST ==="
+          echo "Key prefix: ${{ secrets.OPENAI_API_KEY }}"
+          RESP=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"Say: OPENAI_WORKS"}],"max_tokens":20}' \
+            --max-time 30 -w "\nHTTP:%{http_code}")
+          HTTP=$(echo "$RESP" | grep "HTTP:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP:")
+          echo "HTTP_CODE=$HTTP"
+          echo "BODY=$BODY"
+          echo "KEY_LEN=${#OPENAI_API_KEY}"
+
+  test-anthropic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Anthropic
+        run: |
+          echo "=== ANTHROPIC API TEST ==="
+          echo "Key prefix: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}"
+          RESP=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
+            -H "Authorization: Bearer ${{ secrets.ANTHROPIC_AUTH_TOKEN }}" \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -H "anthropic-version: 2023-06-01" \
+            -d '{"model":"claude-3-haiku-20240307","max_tokens":20,"messages":[{"role":"user","content":"Say: CLAUDE_WORKS"}]}' \
+            --max-time 30 -w "\nHTTP:%{http_code}")
+          HTTP=$(echo "$RESP" | grep "HTTP:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP:")
+          echo "HTTP_CODE=$HTTP"
+          echo "BODY=$BODY"
+          echo "KEY_LEN=${#ANTHROPIC_AUTH_TOKEN}"
+
+  test-openrouter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test OpenRouter
+        run: |
+          echo "=== OPENROUTER API TEST ==="
+          echo "Key prefix: ${{ secrets.OPENROUTER_API_KEY }}"
+          RESP=$(curl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"google/gemma-4-26b-a4b-it:free","messages":[{"role":"user","content":"Say: OPENROUTER_WORKS"}],"max_tokens":20}' \
+            --max-time 30 -w "\nHTTP:%{http_code}")
+          HTTP=$(echo "$RESP" | grep "HTTP:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP:")
+          echo "HTTP_CODE=$HTTP"
+          echo "BODY=$BODY"
+          echo "KEY_LEN=${#OPENROUTER_API_KEY}"
+
+  test-groq:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Groq
+        run: |
+          echo "=== GROQ API TEST ==="
+          RESP=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Authorization: Bearer ${{ secrets.GROQ_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"Say: GROQ_WORKS"}],"max_tokens":20}' \
+            --max-time 30 -w "\nHTTP:%{http_code}")
+          HTTP=$(echo "$RESP" | grep "HTTP:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP:")
+          echo "HTTP_CODE=$HTTP"
+          echo "BODY=$BODY"
+
+  test-cohere:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Cohere
+        run: |
+          echo "=== COHERE API TEST ==="
+          RESP=$(curl -s -X POST "https://api.cohere.ai/v1/chat" \
+            -H "Authorization: Bearer ${{ secrets.COHERE_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"command-r-plus","messages":[{"role":"user","content":"Say: COHERE_WORKS"}],"max_tokens":20}' \
+            --max-time 30 -w "\nHTTP:%{http_code}")
+          HTTP=$(echo "$RESP" | grep "HTTP:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP:")
+          echo "HTTP_CODE=$HTTP"
+          echo "BODY=$BODY"
