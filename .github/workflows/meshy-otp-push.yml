@@ -1,0 +1,60 @@
+name: Meshy OTP Push
+on:
+  push:
+    paths:
+      - '.github/workflows/meshy-otp-push.yml'
+  workflow_dispatch:
+
+jobs:
+  otp-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create mail.tm + OTP
+        run: |
+          set -e
+          TS=$(date +%s)
+          ADDR="meshy$TS@mail.tm"
+          echo "Email: $ADDR"
+          
+          # Create account
+          curl -s -X POST "https://api.mail.tm/accounts" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"$ADDR\",\"password\":\"MeshyPass123\"}"
+          
+          # Get token
+          T=$(curl -s -X POST "https://api.mail.tm/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"$ADDR\",\"password\":\"MeshyPass123\"}" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('token',''))")
+          echo "Token: ${T:0:30}..."
+          
+          # Send OTP
+          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA"
+          
+          echo "Sending OTP..."
+          curl -s -X POST "https://auth.meshy.ai/auth/v1/otp" \
+            -H "Content-Type: application/json" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "x-client-info: supabase-js/2.39.0" \
+            -H "origin: https://www.meshy.ai" \
+            -H "referer: https://www.meshy.ai/" \
+            -H "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36" \
+            -d "{\"email\":\"$ADDR\",\"data\":{},\"create_user\":true}"
+          
+          # Poll 30 times
+          for i in $(seq 1 30); do
+            sleep 3
+            MSGS=$(curl -s "https://api.mail.tm/messages" -H "Authorization: Bearer $T")
+            echo "[$((i*3))s] $MSGS"
+            COUNT=$(echo "$MSGS" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('hydra-member',[])))" 2>/dev/null)
+            if [ "$COUNT" -gt 0 ]; then
+              echo "FOUND EMAIL!"
+              echo "$MSGS" | python3 -c "
+import sys,json
+msgs = json.load(sys.stdin).get('hydra-member',[])
+for msg in msgs:
+    print('MSG:', msg)
+"
+              break
+            fi
+          done
