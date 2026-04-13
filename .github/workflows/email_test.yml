@@ -1,0 +1,128 @@
+name: Email OTP Test
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  email-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test email providers for OTP
+        run: |
+          python3 -c "
+import requests, time, json
+
+AUTH = 'https://auth.meshy.ai'
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA'
+
+# Test 1: mail.tm
+print('[1] mail.tm test...')
+try:
+    r = requests.post('https://api.mail.tm/accounts', json={'address': 'meshy_gha_test@mail.tm', 'password': 'TestPass123!'}, timeout=5)
+    print(f'  Create mail.tm: {r.status_code}')
+    if r.status_code == 201:
+        token_r = requests.post('https://api.mail.tm/token', json={'address': 'meshy_gha_test@mail.tm', 'password': 'TestPass123!'}, timeout=5)
+        mt = token_r.json().get('token', '')
+        print(f'  Token: {len(mt)} chars')
+        if mt:
+            r2 = requests.post(f'{AUTH}/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': 'meshy_gha_test@mail.tm', 'create_user': True})
+            print(f'  OTP send: {r2.status_code}')
+            time.sleep(5)
+            msgs = requests.get('https://api.mail.tm/messages', headers={'Authorization': f'Bearer {mt}'}, timeout=5)
+            print(f'  Messages: {msgs.json()}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 2: guerrillamail alternative
+print('[2] guerrillamail...')
+try:
+    r = requests.get('https://api.guerrillamail.com/ajax.php?f=get_email_address', timeout=5)
+    print(f'  Guerrillamail: {r.status_code} => {r.text[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 3: 10minutemail
+print('[3] 10minutemail...')
+try:
+    r = requests.get('https://10minutemail.com/10minutemail/get.html', timeout=5)
+    print(f'  10minutemail: {r.status_code}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 4: temp-mail.org
+print('[4] tempmail...')
+try:
+    r = requests.get('https://api.temp-mail.org/request/domains/format/json/', timeout=5)
+    print(f'  Tempmail domains: {r.status_code} => {r.text[:200]}')
+    r2 = requests.post('https://api.temp-mail.org/request/mailbox/format/json/', timeout=5)
+    print(f'  Tempmail create: {r2.status_code} => {r2.text[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 5: yopmail
+print('[5] yopmail...')
+try:
+    email = 'meshy_gha_' + str(int(time.time())) + '@yopmail.com'
+    r = requests.get(f'https://yopmail.com/api/email/new?login={email.split(\"@\")[0]}&domain=yopmail.com', timeout=5)
+    print(f'  Yopmail create: {r.status_code} => {r.text[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 6: getnada
+print('[6] getnada...')
+try:
+    email = 'meshy_gha_' + str(int(time.time())) + '@getnada.com'
+    r = requests.post('https://getnada.com/api/v1/inboxes/add-endpoint', headers={'Content-Type': 'application/json'}, json={'name': email.split('@')[0]}, timeout=5)
+    print(f'  Getnada create: {r.status_code} => {r.text[:200]}')
+    time.sleep(3)
+    r2 = requests.get(f'https://getnada.com/api/v1/inboxes/{email}', timeout=5)
+    print(f'  Getnada inbox: {r2.status_code} => {r2.text[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+# Test 7: maildrop.cc
+print('[7] maildrop.cc...')
+try:
+    email = 'meshy_gha_' + str(int(time.time()))
+    r = requests.get(f'https://maildrop.cc/inbox/{email}', timeout=5)
+    print(f'  Maildrop inbox: {r.status_code}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+print()
+print('[8] Testing magic link alternative...')
+try:
+    # Magic link instead of OTP
+    r = requests.post(f'{AUTH}/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': 'gha_test@mail.tm', 'create_user': False})
+    print(f'  OTP non-create: {r.status_code} => {r.text}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+print()
+print('[9] Testing GitHub OAuth...')
+try:
+    r = requests.get(f'{AUTH}/auth/v1/authorize?provider=github&redirect_to=https://www.meshy.ai&state=test123', headers={'apikey': SUPABASE_KEY}, timeout=5, allow_redirects=False)
+    print(f'  GitHub OAuth: {r.status_code}')
+    print(f'  Location: {r.headers.get(\"Location\", \"\")[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+print()
+print('[10] Testing Discord OAuth...')
+try:
+    r = requests.get(f'{AUTH}/auth/v1/authorize?provider=discord&redirect_to=https://www.meshy.ai&state=test123', headers={'apikey': SUPABASE_KEY}, timeout=5, allow_redirects=False)
+    print(f'  Discord OAuth: {r.status_code}')
+    print(f'  Location: {r.headers.get(\"Location\", \"\")[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+
+print()
+print('[11] Testing Apple OAuth...')
+try:
+    r = requests.get(f'{AUTH}/auth/v1/authorize?provider=apple&redirect_to=https://www.meshy.ai&state=test123', headers={'apikey': SUPABASE_KEY}, timeout=5, allow_redirects=False)
+    print(f'  Apple OAuth: {r.status_code}')
+    print(f'  Location: {r.headers.get(\"Location\", \"\")[:200]}')
+except Exception as e:
+    print(f'  ERR: {e}')
+"
