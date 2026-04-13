@@ -1,0 +1,77 @@
+name: GHA Real Email OTP
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  gha-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GHA Real Email OTP
+        run: |
+          python3 -c "
+import requests, time, json
+AUTH = 'https://auth.meshy.ai'
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZnJlY2xzeGZncW52Z2ZweGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU1ODQwNjUsImV4cCI6MjAzMTE2MDA2NX0.015muXUW_O30jeBOxEU9-TQOJigcKMUhkNFbPOWu_iA'
+print('=== GHA REAL EMAIL OTP ===')
+# 1: Guerrillamail
+try:
+    r = requests.get('https://api.guerrillamail.com/ajax.php?f=get_email_address', timeout=10)
+    email = r.json().get('mail_get_address', '')
+    print('GMail: ' + email)
+    if email:
+        r2 = requests.post(AUTH + '/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': email, 'create_user': True}, timeout=10)
+        print('OTP: ' + str(r2.status_code))
+        for i in range(15):
+            time.sleep(5)
+            r3 = requests.get('https://api.guerrillamail.com/ajax.php?f=check_email&email=' + email, timeout=10)
+            emails = r3.json().get('list', [])
+            if emails:
+                for e in emails[:3]:
+                    rid = e.get('mail_id')
+                    r4 = requests.get('https://api.guerrillamail.com/ajax.php?f=fetch_email&email_id=' + str(rid), timeout=10)
+                    print('EMAIL: ' + r4.text[:500])
+                break
+            print('Poll ' + str(i+1) + '/15')
+except Exception as e:
+    print('GMail ERR: ' + str(e))
+# 2: GetNada
+print()
+try:
+    inbox = 'meshygha' + str(int(time.time()))
+    r = requests.post('https://api.internal.getnada.com/v1/inbox/' + inbox, headers={'Content-Type': 'application/json'}, timeout=10)
+    print('GetNada: ' + str(r.status_code))
+    email = inbox + '@getnada.com'
+    r2 = requests.post(AUTH + '/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': email, 'create_user': True}, timeout=10)
+    print('OTP: ' + str(r2.status_code))
+    for i in range(15):
+        time.sleep(5)
+        r3 = requests.get('https://api.internal.getnada.com/v1/inbox/' + inbox, timeout=10)
+        if r3.status_code == 200 and r3.text:
+            print('MSG: ' + r3.text[:500])
+            break
+        print('Poll ' + str(i+1) + '/15')
+except Exception as e:
+    print('GetNada ERR: ' + str(e))
+# 3: Yopmail
+print()
+try:
+    yop = 'meshygha' + str(int(time.time()))
+    email = yop + '@yopmail.com'
+    r2 = requests.post(AUTH + '/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': email, 'create_user': True}, timeout=10)
+    print('Yopmail OTP: ' + str(r2.status_code))
+    time.sleep(5)
+    r3 = requests.get('https://yopmail.com/email/' + yop + '/mail', timeout=10)
+    print('Yopmail inbox: ' + str(r3.status_code) + ' len=' + str(len(r3.text)))
+    if 'Meshy' in r3.text:
+        print('FOUND: ' + r3.text[:1000])
+except Exception as e:
+    print('Yop ERR: ' + str(e))
+# 4: Gmail test
+print()
+gmail = 'meshygha' + str(int(time.time())) + '@gmail.com'
+r = requests.post(AUTH + '/auth/v1/otp', headers={'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'origin': 'https://www.meshy.ai'}, json={'email': gmail, 'create_user': True}, timeout=10)
+print('Gmail OTP: ' + str(r.status_code) + ' => ' + r.text)
+print('DONE')
+"
