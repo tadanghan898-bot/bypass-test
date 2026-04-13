@@ -66,26 +66,7 @@ env:
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
 jobs:
-  proxy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Unified Proxy - Routing
-        id: route
-        run: |
-          echo "=== UNIFIED CLOUD PROXY ==="
-          echo "Provider: ${{ inputs.provider }}"
-          echo "Endpoint: ${{ inputs.endpoint }}"
-          echo "Method: ${{ inputs.method }}"
-          echo "Polling: ${{ inputs.polling }}"
-          echo "Run ID: ${{ github.run_id }}"
-          echo "Run Attempt: ${{ github.run_attempt }}"
-
-          # Route via provider-specific job
-          echo "provider=${{ inputs.provider }}" >> $GITHUB_OUTPUT
-          echo "endpoint=${{ inputs.endpoint }}" >> $GITHUB_OUTPUT
-
   meshyl:
-    needs: route
     if: inputs.provider == 'meshyl'
     runs-on: ubuntu-latest
     steps:
@@ -171,7 +152,7 @@ jobs:
           retention-days: 1
 
   groq:
-    needs: route
+
     if: inputs.provider == 'groq'
     runs-on: ubuntu-latest
     steps:
@@ -220,7 +201,7 @@ jobs:
           retention-days: 1
 
   pollinations:
-    needs: route
+
     if: inputs.provider == 'pollinations'
     runs-on: ubuntu-latest
     steps:
@@ -283,7 +264,7 @@ jobs:
           retention-days: 1
 
   tripo3d:
-    needs: route
+
     if: inputs.provider == 'tripo3d'
     runs-on: ubuntu-latest
     steps:
@@ -329,7 +310,7 @@ jobs:
           retention-days: 1
 
   stability:
-    needs: route
+
     if: inputs.provider == 'stability'
     runs-on: ubuntu-latest
     steps:
@@ -379,7 +360,7 @@ jobs:
           retention-days: 1
 
   replicate:
-    needs: route
+
     if: inputs.provider == 'replicate'
     runs-on: ubuntu-latest
     steps:
@@ -429,7 +410,7 @@ jobs:
           retention-days: 1
 
   fal:
-    needs: route
+
     if: inputs.provider == 'fal'
     runs-on: ubuntu-latest
     steps:
@@ -479,7 +460,7 @@ jobs:
           retention-days: 1
 
   hf:
-    needs: route
+
     if: inputs.provider == 'hf'
     runs-on: ubuntu-latest
     steps:
@@ -525,7 +506,7 @@ jobs:
           retention-days: 1
 
   openai:
-    needs: route
+
     if: inputs.provider == 'openai'
     runs-on: ubuntu-latest
     steps:
@@ -575,7 +556,7 @@ jobs:
           retention-days: 1
 
   openrouter:
-    needs: route
+
     if: inputs.provider == 'openrouter'
     runs-on: ubuntu-latest
     steps:
@@ -627,7 +608,7 @@ jobs:
           retention-days: 1
 
   luma:
-    needs: route
+
     if: inputs.provider == 'luma'
     runs-on: ubuntu-latest
     steps:
