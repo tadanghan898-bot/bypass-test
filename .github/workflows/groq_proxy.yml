@@ -1,0 +1,223 @@
+name: Groq AI Dedicated Proxy
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action: chat, models, embeddings'
+        required: true
+        type: choice
+        options:
+          - chat
+          - models
+          - embeddings
+      model:
+        description: 'Model (e.g. llama-3.3-70b-versatile, mixtral-8x7b-32768)'
+        required: false
+        type: string
+        default: 'llama-3.3-70b-versatile'
+      message:
+        description: 'Chat message content'
+        required: false
+        type: string
+      messages:
+        description: 'JSON array of messages (overrides message param)'
+        required: false
+        type: string
+      system_prompt:
+        description: 'System prompt'
+        required: false
+        type: string
+        default: 'You are a helpful assistant.'
+      max_tokens:
+        description: 'Max tokens'
+        required: false
+        type: string
+        default: '1024'
+      temperature:
+        description: 'Temperature (0.0-2.0)'
+        required: false
+        type: string
+        default: '0.7'
+      api_key:
+        description: 'API key (optional - uses stored secret)'
+        required: false
+        type: string
+
+env:
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+jobs:
+  chat:
+    if: inputs.action == 'chat'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Groq Chat Completion
+        run: |
+          echo "=== GROQ CHAT COMPLETION ==="
+          API_KEY="${GROQ_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          echo "Model: ${{ inputs.model }}"
+          echo "System: ${{ inputs.system_prompt }}"
+
+          # Build messages array
+          if [ -n "${{ inputs.messages }}" ] && [ "${{ inputs.messages }}" != "null" ]; then
+            MESSAGES="${{ inputs.messages }}"
+          else
+            MSG_CONTENT=$(python3 -c "import json,sys; print(json.dumps(sys.stdin.read().strip()))" <<< "${{ inputs.message }}")
+            MESSAGES="[{\"role\": \"user\", \"content\": $MSG_CONTENT}]"
+          fi
+
+          BODY=$(cat <<EOF
+          {
+            "model": "${{ inputs.model }}",
+            "messages": $MESSAGES,
+            "max_tokens": ${{ inputs.max_tokens }},
+            "temperature": ${{ inputs.temperature }}
+          }
+EOF
+          )
+          echo "Request: $BODY"
+
+          RESPONSE=$(curl -s -X POST \
+            "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Authorization: Bearer $API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            -w "\n%{http_code}" \
+            --max-time 120)
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY_OUT=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "Response: $BODY_OUT"
+          echo "$BODY_OUT" > response.json
+
+          # Extract content
+          CONTENT=$(echo "$BODY_OUT" | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    msg=d.get('choices',[{}])[0].get('message',{})
+    print(msg.get('content',''))
+except:
+    print('')
+" 2>/dev/null)
+
+          echo "## Groq Chat" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP:** $HTTP | **Model:** ${{ inputs.model }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Response:**" >> $GITHUB_STEP_SUMMARY
+          echo "$CONTENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY_OUT" | head -c 500 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: groq-chat-${{ github.run_id }}
+          path: response.json
+          retention-days: 1
+
+  models:
+    if: inputs.action == 'models'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Groq Models List
+        run: |
+          echo "=== GROQ MODELS LIST ==="
+          API_KEY="${GROQ_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          RESPONSE=$(curl -s -X GET \
+            "https://api.groq.com/openai/v1/models" \
+            -H "Authorization: Bearer $API_KEY" \
+            -w "\n%{http_code}" \
+            --max-time 30)
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY" > response.json
+
+          # List model IDs
+          echo "--- Available Models ---"
+          echo "$BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for m in d.get('data', []):
+    print(f\"  {m['id']} | context: {m.get('context_window','?')} | created: {m.get('created','?')}\")
+" 2>/dev/null
+
+          echo "## Groq Models" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+for m in d.get('data', []):
+    print(f\"{m['id']} | context: {m.get('context_window','?')}\")
+" 2>/dev/null
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: groq-models-${{ github.run_id }}
+          path: response.json
+          retention-days: 1
+
+  embeddings:
+    if: inputs.action == 'embeddings'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Groq Embeddings
+        run: |
+          echo "=== GROQ EMBEDDINGS ==="
+          API_KEY="${GROQ_API_KEY:-${{ inputs.api_key }}}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: No API key"
+            exit 1
+          fi
+
+          BODY=$(cat <<EOF
+          {
+            "model": "llama-3.3-70b-versatile",
+            "input": "${{ inputs.message }}"
+          }
+EOF
+          )
+
+          RESPONSE=$(curl -s -X POST \
+            "https://api.groq.com/openai/v1/embeddings" \
+            -H "Authorization: Bearer $API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            -w "\n%{http_code}" \
+            --max-time 60)
+
+          HTTP=$(echo "$RESPONSE" | tail -1)
+          BODY_OUT=$(echo "$RESPONSE" | head -1)
+          echo "HTTP: $HTTP"
+          echo "$BODY_OUT" > response.json
+
+          echo "## Groq Embeddings" >> $GITHUB_STEP_SUMMARY
+          echo "**HTTP:** $HTTP" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$BODY_OUT" | head -c 500 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Response
+        uses: actions/upload-artifact@v4
+        with:
+          name: groq-embeddings-${{ github.run_id }}
+          path: response.json
+          retention-days: 1
