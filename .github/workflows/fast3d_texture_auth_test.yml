@@ -1,0 +1,135 @@
+name: FAST3D TEXTURE WITH AUTH (FRESH IP)
+on:
+  workflow_dispatch:
+
+jobs:
+  # Test texture action from a FRESH GHA IP with auth cookies (no mesh first)
+  texture_only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decode auth cookies
+        run: |
+          COOKIES=$(echo "${{ secrets.FAST3D_OAUTH_COOKIES }}" | base64 -d)
+          echo "::add-mask::$COOKIES"
+          echo "cookies=$COOKIES" >> $GITHUB_OUTPUT
+
+      - name: Check session validity
+        run: |
+          COOKIES=$(echo "${{ secrets.FAST3D_OAUTH_COOKIES }}" | base64 -d)
+          SESSION=$(curl -s https://fast3d.io/api/auth/get-session \
+            -H "Cookie: $COOKIES")
+          echo "Session: $SESSION"
+
+      - name: Test texture with auth cookies (FRONT-LOADED, fresh IP)
+        run: |
+          set -e
+          COOKIES=$(echo "${{ secrets.FAST3D_OAUTH_COOKIES }}" | base64 -d)
+
+          # Use inspiration GLB from CDN + auth cookies
+          INSPIRATION=$((1 + $RANDOM % 12))
+          echo "Testing texture action with auth cookies (inspiration=$INSPIRATION)"
+
+          TEXT_RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -H "Cookie: $COOKIES" \
+            -d "{
+              \"glb_mesh\": \"https://cdn.fast3d.io/website/glb/inspiration/inspiration-$INSPIRATION.glb\",
+              \"texture_image_url\": \"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\",
+              \"action\": \"texture\",
+              \"target_triangles\": 80000,
+              \"generation_type\": \"image\"
+            }")
+          echo "Response: $TEXT_RESP"
+
+          ERROR=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+          CREDITS=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); c=d.get('credits',{}); print(c.get('deductedCredits','?'))")
+          echo "error=$ERROR credits=$CREDITS"
+
+          if [ "$ERROR" = "0" ]; then
+            TUUID=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+            echo "texture_uuid=$TUUID" >> $GITHUB_OUTPUT
+            echo "SUCCESS! Polling texture task..."
+            for j in $(seq 1 60); do
+              sleep 3
+              TSTATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" \
+                -H "Cookie: $COOKIES" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  [$j] $TSTATUS"
+              if [ "$TSTATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$TUUID.glb" -L -o textured.glb
+                TSIZE=$(wc -c < textured.glb)
+                echo "texture_size=$TSIZE" >> $GITHUB_OUTPUT
+                echo "TEXTURE SUCCESS: textured.glb = $TSIZE bytes"
+                ls -la textured.glb
+                exit 0
+              fi
+              if [ "$TSTATUS" = "failed" ]; then
+                ERRMSG=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" \
+                  -H "Cookie: $COOKIES" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('error_message','none'))")
+                echo "Texture FAILED: $ERRMSG"
+                echo "texture_error=$ERRMSG" >> $GITHUB_OUTPUT
+                break
+              fi
+            done
+          elif [ "$ERROR" = "10205" ]; then
+            echo "ERROR 10205: Texture not allowed for this account"
+          elif [ "$ERROR" = "402" ]; then
+            echo "ERROR 402: Insufficient credits"
+          elif [ "$ERROR" = "10305" ]; then
+            echo "ERROR 10305: Rate limited (auth sessions ALSO rate limited?)"
+          else
+            echo "Unknown error: $ERROR"
+          fi
+
+      - name: Test texture with ONLY auth (no CDN GLB, just auth test)
+        run: |
+          COOKIES=$(echo "${{ secrets.FAST3D_OAUTH_COOKIES }}" | base64 -d)
+
+          echo "Testing with image_list instead of glb_mesh..."
+          INSPIRATION=$((1 + $RANDOM % 12))
+          TEXT_RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -H "Cookie: $COOKIES" \
+            -d "{
+              \"image_list\": [\"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\"],
+              \"action\": \"texture\",
+              \"target_triangles\": 80000,
+              \"generation_type\": \"image\"
+            }")
+          echo "Response: $TEXT_RESP"
+          ERROR=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+          echo "error=$ERROR"
+
+  anon_texture_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Anonymous texture test (fresh IP)
+        run: |
+          echo "Testing texture action ANONYMOUSLY from fresh GHA IP (no mesh first)..."
+          INSPIRATION=$((1 + $RANDOM % 12))
+
+          TEXT_RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"glb_mesh\": \"https://cdn.fast3d.io/website/glb/inspiration/inspiration-$INSPIRATION.glb\",
+              \"action\": \"texture\",
+              \"target_triangles\": 80000,
+              \"generation_type\": \"image\"
+            }")
+          echo "Anonymous texture response: $TEXT_RESP"
+          ERROR=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+          echo "error=$ERROR"
+          if [ "$ERROR" = "0" ]; then
+            echo "BREAKTHROUGH: Anonymous texture works from fresh IP!"
+            TUUID=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+            echo "texture_uuid=$TUUID" >> $GITHUB_OUTPUT
+            for j in $(seq 1 60); do
+              sleep 3
+              TSTATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  [$j] $TSTATUS"
+              if [ "$TSTATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$TUUID.glb" -L -o anon_textured.glb
+                echo "SUCCESS: anon_textured.glb = $(wc -c < anon_textured.glb) bytes"
+                exit 0
+              fi
+            done
+          fi
