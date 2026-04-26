@@ -1,0 +1,119 @@
+name: FAST3D MESH + TEXTURE CHAIN
+on:
+  workflow_dispatch:
+
+jobs:
+  texture_chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mesh to Texture
+        id: chain
+        run: |
+          set -e
+          echo "=== STEP 1: Generate Mesh ==="
+          INSPIRATION=$((1 + $RANDOM % 12))
+          echo "Inspiration: $INSPIRATION"
+
+          RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{\"image_list\": [\"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\"],\"action\": \"mesh\",\"target_triangles\": 80000,\"generation_type\": \"image\"}")
+          echo "Response: $RESP"
+
+          UUID=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+          echo "Mesh UUID=$UUID"
+          echo "mesh_uuid=$UUID" >> $GITHUB_OUTPUT
+
+          if [ -z "$UUID" ]; then echo "FAIL"; exit 1; fi
+
+          echo "Polling mesh..."
+          for i in $(seq 1 30); do
+            sleep 3
+            STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$UUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+            echo "  [$i] $STATUS"
+            if [ "$STATUS" = "completed" ]; then
+              curl -s "https://fast3d.io/api/generate/img23d/getfile/$UUID.glb" -L -o mesh.glb
+              MSIZE=$(wc -c < mesh.glb)
+              echo "Mesh: $MSIZE bytes"
+              break
+            fi
+            if [ "$STATUS" = "failed" ]; then echo "Mesh FAILED"; exit 1; fi
+          done
+
+          echo "=== STEP 2: Check CDN ==="
+          CDN="https://cdn.fast3d.io/3d_images_anon/2026/04/26/$UUID.glb"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$CDN")
+          echo "CDN URL=$CDN HTTP=$HTTP"
+
+          echo "=== STEP 3: Texture Generation ==="
+          for ATTEMPT in 1 2 3; do
+            echo "Attempt $ATTEMPT..."
+            TEXT_RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+              -H "Content-Type: application/json" \
+              -d "{\"glb_mesh\": \"$CDN\",\"action\": \"texture\",\"target_triangles\": 80000,\"generation_type\": \"image\"}")
+            echo "Response: $TEXT_RESP"
+
+            ERROR=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+            CREDITS=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); c=d.get('credits',{}); print(c.get('deductedCredits','?'))")
+            echo "Error=$ERROR Credits=$CREDITS"
+
+            if [ "$ERROR" = "0" ]; then
+              TUUID=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+              echo "texture_uuid=$TUUID" >> $GITHUB_OUTPUT
+              echo "Polling texture..."
+              for j in $(seq 1 60); do
+                sleep 3
+                TSTATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+                echo "  [$j] $TSTATUS"
+                if [ "$TSTATUS" = "completed" ]; then
+                  echo "TEXTURE SUCCESS!"
+                  curl -s "https://fast3d.io/api/generate/img23d/getfile/$TUUID.glb" -L -o textured.glb
+                  TSIZE=$(wc -c < textured.glb)
+                  echo "texture_size=$TSIZE" >> $GITHUB_OUTPUT
+                  echo "Final GLB: $TSIZE bytes"
+                  exit 0
+                fi
+                if [ "$TSTATUS" = "failed" ]; then
+                  ERRMSG=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('error_message','none'))")
+                  echo "Failed: $ERRMSG"
+                  break
+                fi
+              done
+            fi
+            sleep 5
+          done
+          echo "All attempts done"
+
+      - name: Summary
+        run: |
+          echo "=== SUMMARY ==="
+          echo "Mesh UUID: ${{ steps.chain.outputs.mesh_uuid }}"
+          echo "Texture UUID: ${{ steps.chain.outputs.texture_uuid }}"
+          echo "Texture Size: ${{ steps.chain.outputs.texture_size }}"
+
+  anon_batch:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        idx: [0, 1, 2, 3, 4, 5]
+    steps:
+      - name: Gen ${{ matrix.idx }}
+        run: |
+          INSPIRATION=$((1 + $RANDOM % 12))
+          RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{\"image_list\": [\"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\"],\"action\": \"mesh\",\"target_triangles\": 80000,\"generation_type\": \"image\"}")
+          UUID=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+          echo "UUID=$UUID"
+
+          if [ -n "$UUID" ]; then
+            for j in $(seq 1 30); do
+              sleep 3
+              STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$UUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  [$j] $STATUS"
+              if [ "$STATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$UUID.glb" -L -o "anon_${{ matrix.idx }}.glb"
+                echo "SUCCESS anon_${{ matrix.idx }}.glb ($(wc -c < "anon_${{ matrix.idx }}.glb") bytes)"
+                exit 0
+              fi
+            done
+          fi
