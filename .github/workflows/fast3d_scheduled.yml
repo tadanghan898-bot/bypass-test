@@ -1,0 +1,35 @@
+name: FAST3D.IO CONTINUOUS MESH GENERATION
+on:
+  schedule:
+    # Run every 10 minutes = 6 runs/hour = 12 free generations/hour
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  # Each run generates 6 free anonymous mesh models (2 per job × 3 jobs)
+  batch_1:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        idx: [0, 1, 2, 3, 4, 5]
+    steps:
+      - name: Generate mesh ${{ matrix.idx }}
+        run: |
+          INSPIRATION=$((1 + $RANDOM % 12))
+          RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{\"image_list\": [\"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\"],\"action\": \"mesh\",\"target_triangles\": 80000,\"generation_type\": \"image\"}")
+          echo "$RESP"
+          UUID=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+          echo "uuid=$UUID"
+          if [ -n "$UUID" ]; then
+            for j in $(seq 1 30); do
+              sleep 3
+              STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$UUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              if [ "$STATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$UUID.glb" -L -o "mesh_$(( $(date +%s) ))_${{ matrix.idx }}.glb"
+                echo "DONE mesh_$(( $(date +%s) ))_${{ matrix.idx }}.glb"
+                exit 0
+              fi
+            done
+          fi
