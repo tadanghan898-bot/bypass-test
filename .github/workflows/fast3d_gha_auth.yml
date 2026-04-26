@@ -1,0 +1,117 @@
+name: FAST3D.IO AUTHENTICATED + SCALE
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Number of generations'
+        required: true
+        default: '5'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cookies: ${{ steps.cookies.outputs.cookies }}
+    steps:
+      - id: cookies
+        name: Decode cookies
+        run: |
+          COOKIES=$(echo "${{ secrets.FAST3D_OAUTH_COOKIES }}" | base64 -d)
+          echo "cookies=$COOKIES" >> $GITHUB_OUTPUT
+          echo "::add-mask::$COOKIES"
+
+  generate:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        index: [0, 1, 2, 3, 4]
+    steps:
+      - name: Generate model ${{ matrix.index }}
+        env:
+          COOKIES: ${{ needs.setup.outputs.cookies }}
+        run: |
+          echo "=== Generation ${{ matrix.index }} ==="
+
+          # Check session first
+          SESSION=$(curl -s https://fast3d.io/api/auth/get-session \
+            -H "Cookie: $COOKIES")
+          echo "Session check: $(echo $SESSION | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"success\"), d.get(\"user\",{}).get(\"email\",\"no-email\"))')"
+
+          # Wait for concurrent slot
+          for i in $(seq 1 20); do
+            SLOT_CHECK=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+              -H "Content-Type: application/json" \
+              -H "Cookie: $COOKIES" \
+              -d '{
+                "image_list": ["https://cdn.fast3d.io/website/images/inspiration/inspiration-$((1 + RANDOM % 12)).webp"],
+                "action": "mesh",
+                "target_triangles": 80000,
+                "generation_type": "image"
+              }')
+            ERROR=$(echo $SLOT_CHECK | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+            echo "Slot check[$i]: error=$ERROR"
+            if [ "$ERROR" = "0" ]; then
+              UUID=$(echo $SLOT_CHECK | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+              echo "Task created: $UUID"
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -n "$UUID" ]; then
+            echo "Polling for completion..."
+            for j in $(seq 1 30); do
+              sleep 3
+              STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$UUID" \
+                -H "Cookie: $COOKIES" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  Status[$j]: $STATUS"
+              if [ "$STATUS" = "completed" ]; then
+                echo "SUCCESS! Downloading..."
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$UUID.glb" -L -o "model_${{ matrix.index }}.glb"
+                ls -la "model_${{ matrix.index }}.glb"
+                break
+              fi
+              if [ "$STATUS" = "failed" ]; then
+                echo "FAILED"
+                break
+              fi
+            done
+          fi
+
+  anon_batch:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        idx: [0, 1]
+    steps:
+      - name: Anonymous generation ${{ matrix.idx }}
+        run: |
+          echo "=== Anonymous Generation ${{ matrix.idx }} ==="
+
+          # Try to get a task ID
+          RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"image_list\": [\"https://cdn.fast3d.io/website/images/inspiration/inspiration-$((1 + RANDOM % 12)).webp\"],
+              \"action\": \"mesh\",
+              \"target_triangles\": 80000,
+              \"generation_type\": \"image\"
+            }")
+          echo "Response: $RESP"
+
+          UUID=$(echo $RESP | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+          echo "UUID: $UUID"
+
+          if [ -n "$UUID" ]; then
+            for j in $(seq 1 30); do
+              sleep 3
+              STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$UUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  Status[$j]: $STATUS"
+              if [ "$STATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$UUID.glb" -L -o "anon_${{ matrix.idx }}.glb"
+                ls -la "anon_${{ matrix.idx }}.glb"
+                break
+              fi
+            done
+          fi
