@@ -1,0 +1,44 @@
+name: FAST3D.IO ANONYMOUS BYPASS
+on:
+  workflow_dispatch:
+
+jobs:
+  fast3d_anon:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test fast3d.io anonymous img23d
+        run: |
+          echo "Testing anonymous img23d from GitHub Actions IP..."
+          RESPONSE=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d '{
+              "image_list": ["https://cdn.fast3d.io/website/images/inspiration/inspiration-1.webp"],
+              "action": "mesh",
+              "target_triangles": 80000,
+              "generation_type": "image"
+            }')
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Status:', d.get('errorCode'), d.get('error','')[:100])"
+
+          # Extract task ID
+          TASK_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+          echo "Task ID: $TASK_ID"
+
+          if [ -n "$TASK_ID" ]; then
+            echo "Task created! Polling..."
+            for i in $(seq 1 30); do
+              sleep 3
+              STATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TASK_ID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "Status[$i]: $STATUS"
+              if [ "$STATUS" = "completed" ]; then
+                echo "SUCCESS! Getting file..."
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$TASK_ID.glb" -L -o result.glb
+                ls -la result.glb
+                exit 0
+              fi
+              if [ "$STATUS" = "failed" ]; then
+                echo "FAILED"
+                exit 1
+              fi
+            done
+          fi
