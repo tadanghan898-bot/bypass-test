@@ -81,7 +81,50 @@ jobs:
             fi
             sleep 5
           done
-          echo "All attempts done"
+          echo "All texture attempts done"
+
+      - name: Test texture_image_url param (fresh IP)
+        run: |
+          set -e
+          echo "=== Testing texture_image_url parameter ==="
+          INSPIRATION=$((1 + $RANDOM % 12))
+          # Test: use CDN GLB + texture_image_url
+          TEXT_RESP=$(curl -s -X POST https://fast3d.io/api/generate/img23d/addtask \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"glb_mesh\": \"https://cdn.fast3d.io/website/glb/inspiration/inspiration-$INSPIRATION.glb\",
+              \"texture_image_url\": \"https://cdn.fast3d.io/website/images/inspiration/inspiration-$INSPIRATION.webp\",
+              \"action\": \"texture\",
+              \"target_triangles\": 80000,
+              \"generation_type\": \"image\"
+            }")
+          echo "Response: $TEXT_RESP"
+          ERROR=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('errorCode',''))")
+          echo "texture_image_url error=$ERROR"
+
+          if [ "$ERROR" = "0" ]; then
+            TUUID=$(echo "$TEXT_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('uuid',''))")
+            echo "texture_uuid=$TUUID" >> $GITHUB_OUTPUT
+            echo "Polling texture from fresh IP..."
+            for j in $(seq 1 60); do
+              sleep 3
+              TSTATUS=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('status',''))")
+              echo "  [$j] $TSTATUS"
+              if [ "$TSTATUS" = "completed" ]; then
+                curl -s "https://fast3d.io/api/generate/img23d/getfile/$TUUID.glb" -L -o textured_imgurl.glb
+                TSIZE=$(wc -c < textured_imgurl.glb)
+                echo "texture_size=$TSIZE" >> $GITHUB_OUTPUT
+                echo "SUCCESS: textured_imgurl.glb = $TSIZE bytes"
+                exit 0
+              fi
+              if [ "$TSTATUS" = "failed" ]; then
+                ERRMSG=$(curl -s "https://fast3d.io/api/generate/img23d/gettask/$TUUID" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('error_message','none'))")
+                echo "Failed: $ERRMSG"
+                break
+              fi
+            done
+          fi
+          echo "texture_image_url test failed"
 
       - name: Summary
         run: |
