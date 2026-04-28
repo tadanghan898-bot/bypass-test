@@ -1,4 +1,4 @@
-name: Outlier Full V2
+name: Outlier V3
 
 on: workflow_dispatch
 
@@ -24,8 +24,8 @@ jobs:
           curl -s https://ipinfo.io/json
         timeout-minutes: 15
 
-      - name: Run Outlier Automation
-        run: node gha_outlier_login.cjs
+      - name: Run Outlier V2
+        run: node gha_outlier_login_v2.cjs
         timeout-minutes: 25
 
       - name: Show Results
@@ -34,33 +34,34 @@ jobs:
           echo 'Runner IP:'
           curl -s https://ipinfo.io/json
           echo ''
-          echo '---'
-          cat google_account.txt 2>/dev/null || echo 'Google Account: NOT CREATED'
-          echo '---'
-          cat google_state.txt 2>/dev/null || echo 'State: NO'
-          echo '---'
-          cat phone_needed.txt 2>/dev/null || echo 'Phone verification: NO'
-          echo '---'
-          cat outlier_success.txt 2>/dev/null || echo 'Outlier SUCCESS: NO'
-          echo '---'
-          cat outlier_blocked.txt 2>/dev/null || echo 'Outlier BLOCKED: NO'
-          echo '---'
-          cat outlier_check.txt 2>/dev/null || echo 'Outlier CHECK: NO'
-          echo '---'
-          cat browser_error.txt 2>/dev/null || echo 'Browser error: NO'
-          echo '---'
-          cat ERROR.txt 2>/dev/null || echo 'Error: NO'
-          echo '---'
-          cat step1_fail.txt 2>/dev/null || echo 'Step1 fail: NO'
-          echo '---'
-          cat step2_fail.txt 2>/dev/null || echo 'Step2 fail: NO'
+          echo 'Google Account:'
+          cat google_account.txt 2>/dev/null || echo 'NOT CREATED'
+          echo 'Google Created:'
+          cat google_created.txt 2>/dev/null || echo 'NO'
+          echo 'Phone Needed:'
+          cat phone_needed.txt 2>/dev/null || echo 'NO'
+          echo 'Step Errors:'
+          cat step1_err.txt step2_err.txt step3_err.txt 2>/dev/null || echo 'NONE'
+          echo 'Step Fails:'
+          cat step1_fail.txt step2_fail.txt 2>/dev/null || echo 'NONE'
+          echo 'Outlier SUCCESS:'
+          cat outlier_success.txt 2>/dev/null || echo 'NO'
+          echo 'Outlier BLOCKED:'
+          cat outlier_blocked.txt 2>/dev/null || echo 'NO'
+          echo 'Outlier CHECK:'
+          cat outlier_check.txt 2>/dev/null || echo 'NO'
+          echo 'Browser Error:'
+          cat browser_error.txt 2>/dev/null || echo 'NO'
+          echo 'Final Error:'
+          cat ERROR.txt 2>/dev/null || echo 'NO'
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: outlier-v2-results
+          name: outlier-v3-results
           path: |
             google_account.txt
+            google_created.txt
             google_state.txt
             phone_needed.txt
             outlier_success.txt
@@ -69,7 +70,13 @@ jobs:
             outlier_landing_blocked.txt
             browser_error.txt
             ERROR.txt
+            step1_err.txt
+            step2_err.txt
+            step3_err.txt
             step1_fail.txt
             step2_fail.txt
+            outlier_test_err.txt
+            no_google_btn.txt
             outlier_cookies.json
+            shot_*.png
           retention-days: 7
