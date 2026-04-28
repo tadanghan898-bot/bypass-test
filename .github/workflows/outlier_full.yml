@@ -1,0 +1,178 @@
+name: Outlier Full Automation
+
+on: workflow_dispatch
+
+jobs:
+  create-account-and-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check runner IP
+        run: |
+          echo '=== RUNNER IP ==='
+          curl -s https://ipinfo.io/json
+
+      - name: Full Outlier Automation
+        run: |
+          node << 'ENDSCRIPT'
+          const { chromium } = require("playwright");
+          const fs = require("fs");
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const ts = () => new Date().toISOString().substring(11, 19);
+          const randId = "danghan" + Math.floor(Math.random() * 900000 + 100000);
+          const NEW_PASS = "Vianhemoi123!";
+          console.log("[" + ts() + "] Target: " + randId + "@gmail.com");
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true, args: ["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu"] });
+            const ctx = await browser.newContext({ viewport: {width:1280,height:900} });
+            const page = await ctx.newPage();
+
+            console.log("[" + ts() + "] Creating Google account from US IP...");
+            await page.goto("https://accounts.google.com/signup", { waitUntil: "domcontentloaded", timeout: 20000 });
+            await sleep(3000);
+
+            try {
+              await page.locator("#firstName").fill("Dang", {timeout:5000});
+              await page.locator("#lastName").fill("Han", {timeout:5000});
+              await page.locator("button").filter({hasText:"Next"}).first().click({force:true});
+              await sleep(5000);
+            } catch(e) { console.log("Name err: " + e.message); }
+
+            let url = page.url();
+            if (!url.includes("birthdaygender")) {
+              fs.writeFileSync("step1_fail.txt", "URL: " + url);
+              await browser.close(); return;
+            }
+
+            try {
+              await page.locator("#day").fill("15", {timeout:5000});
+              await page.locator("#year").fill("1995", {timeout:5000});
+              await page.locator("#month").click({timeout:5000});
+              await sleep(800);
+              await page.locator("[role=option]").filter({hasText:"March"}).first().click({force:true, timeout:5000});
+              await sleep(500);
+              await page.locator("#gender").click({timeout:5000});
+              await sleep(800);
+              await page.locator("[role=option]").filter({hasText:"Male"}).first().click({force:true, timeout:5000});
+              await page.locator("button").filter({hasText:"Next"}).first().click({force:true});
+              await sleep(6000);
+            } catch(e) { console.log("Bday err: " + e.message); }
+
+            url = page.url();
+            if (!url.includes("username")) {
+              fs.writeFileSync("step2_fail.txt", "URL: " + url);
+              await browser.close(); return;
+            }
+
+            try {
+              await page.locator("input[name=Username]").fill(randId, {timeout:5000});
+              await page.locator("button").filter({hasText:"Next"}).first().click({force:true});
+              await sleep(8000);
+            } catch(e) { console.log("Username err: " + e.message); }
+
+            url = page.url();
+            const body4 = await page.evaluate(() => document.body.innerText);
+            console.log("[" + ts() + "] URL4: " + url);
+
+            if (body4.includes("Password") || url.includes("password")) {
+              const pwInputs = page.locator("input[type=password]");
+              const cnt = await pwInputs.count();
+              if (cnt >= 1) await pwInputs.nth(0).fill(NEW_PASS);
+              if (cnt >= 2) await pwInputs.nth(1).fill(NEW_PASS);
+              await page.locator("button").filter({hasText:"Next"}).first().click({force:true});
+              await sleep(10000);
+            }
+
+            const finalUrl = page.url();
+            const finalBody = await page.evaluate(() => document.body.innerText);
+            console.log("[" + ts() + "] Google Final URL: " + finalUrl);
+            console.log("[" + ts() + "] Google Final Body: " + finalBody.slice(0,300));
+
+            fs.writeFileSync("google_account.txt", "email=" + randId + "@gmail.com");
+            fs.writeFileSync("google_state.txt", "URL: " + finalUrl + "\nBody: " + finalBody.slice(0,500));
+
+            if (finalBody.toLowerCase().includes("verify") || finalBody.toLowerCase().includes("phone")) {
+              console.log("[" + ts() + "] PHONE VERIFICATION!");
+              fs.writeFileSync("phone_needed.txt", "Account: " + randId + "@gmail.com");
+            } else if (finalBody.includes("Welcome") || finalUrl.includes("myaccount")) {
+              console.log("[" + ts() + "] GOOGLE ACCOUNT CREATED! " + randId + "@gmail.com");
+            }
+
+            console.log("[" + ts() + "] Testing Outlier login...");
+            const page2 = await ctx.newPage();
+            await page2.goto("https://app.outlier.ai/en/expert/login", { waitUntil: "domcontentloaded", timeout: 20000 });
+            await sleep(3000);
+
+            const gBtn = page2.locator("button").filter({ hasText: /Google/i }).first();
+            if (await gBtn.count() > 0) {
+              await gBtn.click({force:true});
+              await sleep(6000);
+              const pages = ctx.pages();
+              let gp = pages.find(p => p.url().includes("accounts.google")) || page2;
+              await gp.bringToFront();
+
+              try {
+                await gp.locator("#identifierId").fill(randId + "@gmail.com", {timeout:5000});
+                await gp.keyboard.press("Enter");
+                await sleep(5000);
+              } catch(e) {}
+              try {
+                await gp.locator("input[name=Passwd]").fill(NEW_PASS, {timeout:5000});
+                await gp.keyboard.press("Enter");
+                await sleep(8000);
+              } catch(e) {}
+
+              const oUrl = gp.url();
+              const oBody = await gp.evaluate(() => document.body.innerText);
+              console.log("[" + ts() + "] Outlier URL: " + oUrl);
+              console.log("[" + ts() + "] Outlier Body: " + oBody.slice(0,300));
+
+              if (oUrl.includes("unavailable") || oBody.includes("not available")) {
+                console.log("[" + ts() + "] OUTLIER BLOCKED");
+                fs.writeFileSync("outlier_blocked.txt", "URL: " + oUrl);
+              } else if (oUrl.includes("outlier") && !oUrl.includes("login")) {
+                console.log("[" + ts() + "] OUTLIER SUCCESS!");
+                fs.writeFileSync("outlier_success.txt", "URL: " + oUrl);
+              } else {
+                fs.writeFileSync("outlier_check.txt", "URL: " + oUrl + "\nBody: " + oBody.slice(0,300));
+              }
+            }
+
+            await browser.close();
+            console.log("[" + ts() + "] DONE");
+          })().catch(e => {
+            console.error("FATAL: " + e.message);
+            fs.writeFileSync("ERROR.txt", e.message);
+            process.exit(1);
+          });
+          ENDSCRIPT
+        timeout-minutes: 25
+
+      - name: Show Results
+        run: |
+          echo '=== RESULTS ==='
+          echo 'Google Account:'
+          cat google_account.txt 2>/dev/null || echo 'Not created'
+          echo 'Phone Needed:'
+          cat phone_needed.txt 2>/dev/null || echo 'No'
+          echo 'Outlier Success:'
+          cat outlier_success.txt 2>/dev/null || echo 'NO'
+          echo 'Outlier Blocked:'
+          cat outlier_blocked.txt 2>/dev/null || echo 'NO'
+          echo 'Error:'
+          cat ERROR.txt 2>/dev/null || echo 'NO'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outlier-results
+          path: google_account.txt google_state.txt phone_needed.txt outlier_success.txt outlier_blocked.txt outlier_check.txt ERROR.txt step1_fail.txt step2_fail.txt
+          retention-days: 7
