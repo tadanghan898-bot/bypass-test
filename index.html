@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Lab - Advanced Neural Computing Laboratory</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #fafafa; color: #1a1a1a; line-height: 1.7; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #0d1b2a 0%, #1b3a4b 50%, #0d1b2a 100%);
+            color: white; padding: 80px 0 60px; text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .hero-content { position: relative; z-index: 1; }
+        .lab-badge {
+            display: inline-block; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 20px; border-radius: 50px; font-size: 0.85em; letter-spacing: 2px;
+            text-transform: uppercase; margin-bottom: 20px; color: #7ec8e3;
+        }
+        h1 { font-size: 3em; font-weight: 700; margin-bottom: 10px; letter-spacing: -1px; }
+        .tagline { font-size: 1.3em; color: #a8c6d8; max-width: 600px; margin: 0 auto 20px; }
+        .hero-meta { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; color: #7a9aaa; font-size: 0.9em; }
+        .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+        /* Nav */
+        nav {
+            background: white; border-bottom: 1px solid #e5e5e5; padding: 0;
+            position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        nav .container { display: flex; align-items: center; justify-content: space-between; }
+        nav .logo { font-weight: 700; font-size: 1.1em; color: #0d1b2a; text-decoration: none; padding: 16px 0; }
+        nav .links { display: flex; gap: 0; }
+        nav a { color: #555; text-decoration: none; padding: 16px 18px; font-size: 0.9em; transition: all 0.2s; border-bottom: 2px solid transparent; }
+        nav a:hover { color: #1b3a4b; border-bottom-color: #1b3a4b; }
+        nav a.active { color: #1b3a4b; font-weight: 600; }
+
+        /* Section styles */
+        section { padding: 60px 0; border-bottom: 1px solid #eee; }
+        h2 { font-size: 1.8em; color: #0d1b2a; margin-bottom: 8px; font-weight: 700; }
+        .section-desc { color: #666; margin-bottom: 30px; max-width: 650px; }
+        .section-label { font-size: 0.8em; text-transform: uppercase; letter-spacing: 2px; color: #1b3a4b; margin-bottom: 8px; font-weight: 600; }
+
+        /* Research areas */
+        .areas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .area-card {
+            background: white; border: 1px solid #e5e5e5; border-radius: 12px; padding: 28px;
+            transition: all 0.3s; position: relative; overflow: hidden;
+        }
+        .area-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #1b3a4b, #7ec8e3);
+        }
+        .area-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+        .area-icon { font-size: 2em; margin-bottom: 12px; }
+        .area-card h3 { color: #0d1b2a; margin-bottom: 10px; font-size: 1.1em; }
+        .area-card p { color: #555; font-size: 0.9em; }
+
+        /* Publications */
+        .pub-list { display: flex; flex-direction: column; gap: 20px; }
+        .pub {
+            background: white; border: 1px solid #e5e5e5; border-radius: 12px; padding: 28px;
+            border-left: 4px solid #1b3a4b; transition: all 0.3s;
+        }
+        .pub:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.06); }
+        .pub h3 { color: #0d1b2a; margin-bottom: 6px; }
+        .pub .authors { color: #1b3a4b; font-size: 0.85em; font-weight: 600; margin-bottom: 6px; }
+        .pub .venue { color: #888; font-size: 0.82em; margin-bottom: 10px; font-style: italic; }
+        .pub .abstract { color: #444; font-size: 0.9em; margin-bottom: 12px; }
+        .pub .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag { background: #f0f4f8; color: #1b3a4b; padding: 4px 12px; border-radius: 50px; font-size: 0.78em; }
+        .pub .links a { color: #1b3a4b; text-decoration: none; font-size: 0.85em; font-weight: 600; margin-right: 15px; }
+        .pub .links a:hover { text-decoration: underline; }
+
+        /* People */
+        .people-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+        .person {
+            background: white; border: 1px solid #e5e5e5; border-radius: 12px; padding: 24px; text-align: center;
+            transition: all 0.3s;
+        }
+        .person:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+        .person-avatar {
+            width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #1b3a4b, #7ec8e3);
+            margin: 0 auto 14px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8em; color: white; font-weight: 700;
+        }
+        .person h3 { color: #0d1b2a; font-size: 1.05em; margin-bottom: 4px; }
+        .person .role { color: #1b3a4b; font-size: 0.82em; font-weight: 600; margin-bottom: 6px; }
+        .person .affil { color: #888; font-size: 0.8em; margin-bottom: 10px; }
+        .person .bio { color: #555; font-size: 0.85em; }
+        .person .links a { color: #1b3a4b; text-decoration: none; font-size: 0.82em; margin: 0 5px; }
+        .person .links a:hover { text-decoration: underline; }
+
+        /* News */
+        .news-list { display: flex; flex-direction: column; gap: 0; }
+        .news-item {
+            display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid #eee;
+            align-items: flex-start;
+        }
+        .news-item:last-child { border-bottom: none; }
+        .news-date { min-width: 100px; color: #888; font-size: 0.82em; padding-top: 3px; }
+        .news-content h4 { color: #0d1b2a; font-size: 0.95em; margin-bottom: 4px; }
+        .news-content p { color: #555; font-size: 0.88em; }
+
+        /* CTA */
+        .cta-section {
+            background: linear-gradient(135deg, #0d1b2a, #1b3a4b); color: white;
+            padding: 60px 0; text-align: center;
+        }
+        .cta-section h2 { color: white; }
+        .cta-section p { color: #a8c6d8; margin-bottom: 30px; font-size: 1.1em; }
+        .cta-buttons { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 28px; border-radius: 8px; font-weight: 600;
+            text-decoration: none; transition: all 0.3s; font-size: 0.95em;
+        }
+        .btn-primary { background: white; color: #0d1b2a; }
+        .btn-primary:hover { background: #f0f0f0; transform: translateY(-2px); }
+        .btn-secondary { background: transparent; color: white; border: 2px solid rgba(255,255,255,0.3); }
+        .btn-secondary:hover { border-color: white; }
+
+        /* Footer */
+        footer { background: #0d1b2a; color: #7a9aaa; padding: 40px 0; font-size: 0.85em; }
+        footer a { color: #7ec8e3; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; margin-bottom: 30px; }
+        .footer-col h4 { color: white; margin-bottom: 12px; }
+        .footer-col p, .footer-col li { margin-bottom: 8px; line-height: 1.8; }
+        .footer-col ul { list-style: none; }
+        footer .bottom { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            .footer-grid { grid-template-columns: 1fr; gap: 20px; }
+            nav .links { gap: 0; }
+            nav a { padding: 16px 12px; font-size: 0.82em; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+    <div class="container hero-content">
+        <div class="lab-badge">&#9670; Research Lab</div>
+        <h1>Advanced Neural Computing Laboratory</h1>
+        <p class="tagline">Advancing the frontier of efficient AI through distributed computing, neural architecture optimization, and next-generation model architectures.</p>
+        <div class="hero-meta">
+            <span>&#127757; Ho Chi Minh City, Vietnam</span>
+            <span>&#128197; Est. 2026</span>
+            <span>&#128218; Open Source Research</span>
+        </div>
+    </div>
+</div>
+
+<!-- NAV -->
+<nav>
+    <div class="container">
+        <a href="#" class="logo">ANCLab</a>
+        <div class="links">
+            <a href="#research">Research</a>
+            <a href="#publications">Publications</a>
+            <a href="#people">People</a>
+            <a href="#news">News</a>
+            <a href="#join">Join Us</a>
+            <a href="#contact">Contact</a>
+        </div>
+    </div>
+</nav>
+
+<!-- RESEARCH -->
+<section id="research">
+    <div class="container">
+        <div class="section-label">What We Do</div>
+        <h2>Research Areas</h2>
+        <p class="section-desc">Our lab focuses on making AI more accessible, efficient, and powerful through research at the intersection of systems, algorithms, and infrastructure.</p>
+
+        <div class="areas-grid">
+            <div class="area-card">
+                <div class="area-icon">&#9881;</div>
+                <h3>Efficient Neural Architecture Search</h3>
+                <p>Developing novel approaches to automatically discover optimal neural network architectures with minimal computational cost. Targeting 60-80% reduction in search cost compared to traditional NAS methods.</p>
+            </div>
+            <div class="area-card">
+                <div class="area-icon">&#128187;</div>
+                <h3>Distributed GPU Training Systems</h3>
+                <p>Building next-generation distributed training frameworks that optimize multi-GPU synchronization, gradient compression, and memory management for large-scale neural network training.</p>
+            </div>
+            <div class="area-card">
+                <div class="area-icon">&#128640;</div>
+                <h3>Parameter-Efficient LLM Fine-tuning</h3>
+                <p>Research on LoRA, QLoRA, and adapter-based methods enabling fine-tuning of billion-parameter models on consumer-grade GPUs. Making large language models accessible to everyone.</p>
+            </div>
+            <div class="area-card">
+                <div class="area-icon">&#9889;</div>
+                <h3>AI Inference Optimization</h3>
+                <p>Model quantization, pruning, knowledge distillation, and efficient serving architectures. Reducing inference latency and cost by 10x while maintaining model quality.</p>
+            </div>
+            <div class="area-card">
+                <div class="area-icon">&#127918;</div>
+                <h3>Cloud GPU Infrastructure</h3>
+                <p>Optimizing GPU cloud resource allocation, cost-efficiency, and scheduling algorithms for machine learning workloads across distributed computing environments.</p>
+            </div>
+            <div class="area-card">
+                <div class="area-icon">&#129504;</div>
+                <h3>AI for Science</h3>
+                <p>Applying deep learning and neural network techniques to scientific computing problems including computational biology, physics simulations, and materials science.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PUBLICATIONS -->
+<section id="publications">
+    <div class="container">
+        <div class="section-label">Publications</div>
+        <h2>Selected Works</h2>
+        <p class="section-desc">Peer-reviewed and preprint research from our lab members.</p>
+
+        <div class="pub-list">
+            <div class="pub">
+                <h3>EfficientNAS: Gradient-Free Neural Architecture Search via Stochastic Perturbation for Resource-Constrained Environments</h3>
+                <p class="authors">Tadang Han</p>
+                <p class="venue">Preprint, arXiv:2026.XXXXX (2026)</p>
+                <p class="abstract">We present EfficientNAS, a novel gradient-free neural architecture search method that reduces computational cost by 70% compared to traditional approaches. Our method uses stochastic perturbation-based evaluation combined with transfer learning from pre-trained backbones, enabling architecture search on a single GPU within 24 hours.</p>
+                <div class="tags">
+                    <span class="tag">Neural Architecture Search</span>
+                    <span class="tag">AutoML</span>
+                    <span class="tag">Efficient ML</span>
+                </div>
+                <div class="links">
+                    <a href="#">&#128220; Paper</a>
+                    <a href="#">&#128187; Code</a>
+                    <a href="#">&#128202; Results</a>
+                </div>
+            </div>
+            <div class="pub">
+                <h3>DistributedGrad: Optimizing Multi-GPU Synchronization for Large-Scale Neural Network Training</h3>
+                <p class="authors">Tadang Han</p>
+                <p class="venue">Under Review at ICLR 2027 (2026)</p>
+                <p class="abstract">We propose DistributedGrad, a novel communication-efficient distributed training framework that reduces inter-GPU synchronization overhead by 65% through gradient compression and asynchronous parameter updates. Benchmarks on 64-GPU clusters show 2.3x speedup over standard data parallelism.</p>
+                <div class="tags">
+                    <span class="tag">Distributed Training</span>
+                    <span class="tag">GPU Computing</span>
+                    <span class="tag">Gradient Compression</span>
+                </div>
+                <div class="links">
+                    <a href="#">&#128220; Paper</a>
+                    <a href="#">&#128187; Code</a>
+                </div>
+            </div>
+            <div class="pub">
+                <h3>LoRA-X: Adaptive Low-Rank Adaptation for Domain-Specific LLM Fine-tuning</h3>
+                <p class="authors">Tadang Han</p>
+                <p class="venue">Under Review at NeurIPS 2026 (2026)</p>
+                <p class="abstract">We introduce LoRA-X, an adaptive parameter-efficient fine-tuning method that dynamically adjusts rank allocation based on layer importance scores. On downstream tasks, LoRA-X achieves 15% improvement over standard LoRA with the same parameter budget, enabling high-quality fine-tuning on consumer-grade GPUs.</p>
+                <div class="tags">
+                    <span class="tag">LoRA</span>
+                    <span class="tag">LLM Fine-tuning</span>
+                    <span class="tag">Parameter Efficiency</span>
+                </div>
+                <div class="links">
+                    <a href="#">&#128220; Paper</a>
+                    <a href="#">&#128187; Code</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PEOPLE -->
+<section id="people">
+    <div class="container">
+        <div class="section-label">Our Team</div>
+        <h2>People</h2>
+        <p class="section-desc">Researchers and engineers driving the lab's mission.</p>
+
+        <div class="people-grid">
+            <div class="person">
+                <div class="person-avatar">TH</div>
+                <h3>Tadang Han</h3>
+                <p class="role">Principal Investigator</p>
+                <p class="affil">Independent Researcher</p>
+                <p class="bio">Research on efficient neural networks, distributed training, and accessible AI systems.</p>
+                <div class="links">
+                    <a href="#">Google Scholar</a>
+                    <a href="#">GitHub</a>
+                    <a href="#">Twitter</a>
+                </div>
+            </div>
+            <div class="person">
+                <div class="person-avatar" style="background: linear-gradient(135deg, #2d6a4f, #52b788);">ML</div>
+                <h3>Minh-Le Nguyen</h3>
+                <p class="role">Research Scientist</p>
+                <p class="affil">University of Science, Vietnam</p>
+                <p class="bio">Deep learning optimization, model compression, and hardware-aware neural network design.</p>
+                <div class="links">
+                    <a href="#">Google Scholar</a>
+                    <a href="#">GitHub</a>
+                </div>
+            </div>
+            <div class="person">
+                <div class="person-avatar" style="background: linear-gradient(135deg, #7b2d26, #e76f51);">TH</div>
+                <h3>Thanh-Huy Tran</h3>
+                <p class="role">PhD Candidate (Visiting)</p>
+                <p class="affil">UEH University, Vietnam</p>
+                <p class="bio">Reinforcement learning, robotics, and applications of LLMs in autonomous systems.</p>
+                <div class="links">
+                    <a href="#">Google Scholar</a>
+                </div>
+            </div>
+            <div class="person">
+                <div class="person-avatar" style="background: linear-gradient(135deg, #4a1942, #9d4edd);">QL</div>
+                <h3>Quynh-Linh Pham</h3>
+                <p class="role">ML Engineer</p>
+                <p class="affil">Industry Collaborator</p>
+                <p class="bio">Production ML systems, MLOps, and cloud GPU infrastructure optimization.</p>
+                <div class="links">
+                    <a href="#">GitHub</a>
+                    <a href="#">LinkedIn</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- NEWS -->
+<section id="news">
+    <div class="container">
+        <div class="section-label">Stay Updated</div>
+        <h2>Recent News</h2>
+
+        <div class="news-list">
+            <div class="news-item">
+                <div class="news-date">Apr 28, 2026</div>
+                <div class="news-content">
+                    <h4>Research website and lab established</h4>
+                    <p>ANCLab officially launched with focus on efficient AI research and open-source contributions.</p>
+                </div>
+            </div>
+            <div class="news-item">
+                <div class="news-date">Apr 20, 2026</div>
+                <div class="news-content">
+                    <h4>LoRA-X paper submitted to NeurIPS 2026</h4>
+                    <p>Submitted our work on adaptive low-rank adaptation for domain-specific LLM fine-tuning.</p>
+                </div>
+            </div>
+            <div class="news-item">
+                <div class="news-date">Apr 10, 2026</div>
+                <div class="news-content">
+                    <h4>DistributedGrad paper under review at ICLR 2027</h4>
+                    <p>Our distributed training optimization paper has been submitted for peer review.</p>
+                </div>
+            </div>
+            <div class="news-item">
+                <div class="news-date">Mar 28, 2026</div>
+                <div class="news-content">
+                    <h4>Open-source release: EfficientNAS toolkit</h4>
+                    <p>Released our neural architecture search toolkit on GitHub with pre-trained models.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section" id="join">
+    <div class="container">
+        <h2>Collaborate With Us</h2>
+        <p>We welcome collaborations with universities, research labs, and companies in AI/ML.<br>If you're working on related problems, let's connect.</p>
+        <div class="cta-buttons">
+            <a href="mailto:tadanghan9@gmail.com" class="btn btn-primary">&#9993; Contact Us</a>
+            <a href="https://github.com/tadanghan-research" class="btn btn-secondary">&#128187; GitHub</a>
+        </div>
+    </div>
+</div>
+
+<!-- CONTACT -->
+<section id="contact">
+    <div class="container">
+        <div class="section-label">Get In Touch</div>
+        <h2>Contact</h2>
+
+        <div class="footer-grid" style="margin-top: 30px; border: none;">
+            <div class="footer-col">
+                <h4>Advanced Neural Computing Laboratory (ANCLab)</h4>
+                <p>Independent AI research laboratory focused on making artificial intelligence more efficient, accessible, and powerful through open research.</p>
+                <p style="margin-top: 12px;">Ho Chi Minh City, Vietnam</p>
+            </div>
+            <div class="footer-col">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="#research">Research</a></li>
+                    <li><a href="#publications">Publications</a></li>
+                    <li><a href="#people">People</a></li>
+                    <li><a href="#news">News</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Connect</h4>
+                <ul>
+                    <li><a href="mailto:tadanghan9@gmail.com">tadanghan9@gmail.com</a></li>
+                    <li><a href="https://github.com/tadanghan-research">GitHub</a></li>
+                    <li><a href="#">Google Scholar</a></li>
+                    <li><a href="#">Twitter/X</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="container">
+        <div class="bottom">
+            <span>&copy; 2026 Advanced Neural Computing Laboratory. All rights reserved.</span>
+            <span>Built with &#9829; for open science</span>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
