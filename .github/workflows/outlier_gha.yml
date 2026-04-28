@@ -1,0 +1,123 @@
+name: Outlier GHA Login
+
+on: workflow_dispatch
+
+jobs:
+  outlier-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + deps
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright > /dev/null 2>&1
+          npx playwright install chromium --with-deps > /dev/null 2>&1
+          echo "=== Runner IP ==="
+          curl -s https://ipinfo.io/json | python3 -c "import sys,json; d=json.load(sys.stdin); print('Country:', d.get('country'), 'IP:', d.get('ip'), 'City:', d.get('city'), 'Org:', d.get('org'))"
+        timeout-minutes: 15
+
+      - name: Outlier Login Test
+        run: |
+          node << 'NODEEOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          const EMAIL = 'danghan972456@gmail.com';
+          const PASS = 'Vianhemoi123!';
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const ts = () => new Date().toISOString().substring(11, 19);
+
+          async function main() {
+            console.log('[' + ts() + '] Starting...');
+            const browser = await chromium.launch({ headless: true, args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'] });
+            const ctx = await browser.newContext({ viewport: {width:1280,height:900} });
+            const page = await ctx.newPage();
+
+            await page.goto('https://app.outlier.ai/en/expert/login', { waitUntil: 'domcontentloaded', timeout: 20000 });
+            await sleep(3000);
+            const url1 = page.url();
+            const body1 = await page.evaluate(() => document.body.innerText).catch(() => '');
+            console.log('[' + ts() + '] URL1: ' + url1);
+            console.log('[' + ts() + '] Body1: ' + body1.slice(0, 300));
+
+            if (body1.includes('not available in your country') || url1.includes('unavailable')) {
+              console.log('[' + ts() + '] GEO-BLOCKED AT LANDING!');
+              fs.writeFileSync('GEO_BLOCKED.txt', 'Blocked at landing');
+              await browser.close(); return;
+            }
+
+            const googleBtn = page.locator('button').filter({ hasText: /Google/i }).first();
+            const cnt = await googleBtn.count();
+            console.log('[' + ts() + '] Google btn: ' + cnt);
+            if (cnt === 0) { fs.writeFileSync('NO_BUTTON.txt', body1.slice(0,300)); await browser.close(); return; }
+
+            await googleBtn.click({ force: true });
+            console.log('[' + ts() + '] Clicked Google');
+            await sleep(6000);
+
+            const allPages = ctx.pages();
+            let gp = allPages.find(p => p.url().includes('accounts.google')) || page;
+            await gp.bringToFront();
+
+            // Fill email
+            try {
+              await gp.locator('#identifierId').fill(EMAIL, {timeout:5000});
+              await gp.keyboard.press('Enter');
+              await sleep(5000);
+            } catch(e) {
+              try {
+                await gp.locator('input[type="text"]').first().fill(EMAIL, {timeout:3000});
+                await gp.keyboard.press('Enter');
+                await sleep(5000);
+              } catch(e2) { console.log('[' + ts() + '] Email err: ' + e2.message); }
+            }
+
+            // Fill password
+            try {
+              await gp.locator('input[name="Passwd"]').fill(PASS, {timeout:5000});
+              await gp.keyboard.press('Enter');
+              await sleep(8000);
+            } catch(e) { console.log('[' + ts() + '] PW err: ' + e.message); }
+
+            const url3 = gp.url();
+            const body3 = await gp.evaluate(() => document.body.innerText).catch(() => '');
+            console.log('[' + ts() + '] Final URL: ' + url3);
+            console.log('[' + ts() + '] Body: ' + body3.slice(0, 300));
+            fs.writeFileSync('cookies.json', JSON.stringify(await ctx.cookies()));
+
+            if (url3.includes('unavailable') || body3.includes("isn't set up") || body3.includes('not available')) {
+              console.log('[' + ts() + '] GEO-BLOCKED AT OAUTH!');
+              fs.writeFileSync('GEO_BLOCKED.txt', 'URL: ' + url3 + '\nBody: ' + body3.slice(0,300));
+            } else if (url3.includes('outlier') && !url3.includes('login') && !url3.includes('unavailable')) {
+              console.log('[' + ts() + '] SUCCESS!');
+              fs.writeFileSync('SUCCESS.txt', 'Dashboard: ' + url3);
+            } else {
+              console.log('[' + ts() + '] CHECK RESULT');
+              fs.writeFileSync('CHECK.txt', 'URL: ' + url3 + '\nBody: ' + body3.slice(0,300));
+            }
+            await browser.close();
+          }
+          main().catch(e => { fs.writeFileSync('ERROR.txt', e.message); process.exit(1); });
+          NODEEOF
+
+      - name: Show Results
+        run: |
+          curl -s https://ipinfo.io/json | python3 -c "import sys,json; d=json.load(sys.stdin); print('IP:', d.get('ip'), 'Country:', d.get('country'), 'City:', d.get('city'), 'Org:', d.get('org'))"
+          echo "GEO_BLOCKED: $(cat GEO_BLOCKED.txt 2>/dev/null || echo NO)"
+          echo "SUCCESS: $(cat SUCCESS.txt 2>/dev/null || echo NO)"
+          echo "CHECK: $(cat CHECK.txt 2>/dev/null || echo NO)"
+          echo "ERROR: $(cat ERROR.txt 2>/dev/null || echo NO)"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outlier-results
+          path: cookies.json SUCCESS.txt GEO_BLOCKED.txt CHECK.txt ERROR.txt NO_BUTTON.txt
+          retention-days: 7
