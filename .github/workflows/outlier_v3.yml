@@ -1,4 +1,4 @@
-name: Outlier V3
+name: Outlier V4 Stealth
 
 on: workflow_dispatch
 
@@ -25,7 +25,7 @@ jobs:
         timeout-minutes: 15
 
       - name: Run Outlier V2
-        run: node gha_outlier_login_v2.cjs
+        run: node gha_outlier_stealth.cjs
         timeout-minutes: 25
 
       - name: Show Results
