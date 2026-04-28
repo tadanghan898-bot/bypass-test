@@ -1,0 +1,75 @@
+name: Outlier Full V2
+
+on: workflow_dispatch
+
+jobs:
+  outlier-automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright > /dev/null 2>&1
+          npx playwright install chromium --with-deps > /dev/null 2>&1
+          echo "=== RUNNER IP ==="
+          curl -s https://ipinfo.io/json
+        timeout-minutes: 15
+
+      - name: Run Outlier Automation
+        run: node gha_outlier_login.cjs
+        timeout-minutes: 25
+
+      - name: Show Results
+        run: |
+          echo '=== RESULTS ==='
+          echo 'Runner IP:'
+          curl -s https://ipinfo.io/json
+          echo ''
+          echo '---'
+          cat google_account.txt 2>/dev/null || echo 'Google Account: NOT CREATED'
+          echo '---'
+          cat google_state.txt 2>/dev/null || echo 'State: NO'
+          echo '---'
+          cat phone_needed.txt 2>/dev/null || echo 'Phone verification: NO'
+          echo '---'
+          cat outlier_success.txt 2>/dev/null || echo 'Outlier SUCCESS: NO'
+          echo '---'
+          cat outlier_blocked.txt 2>/dev/null || echo 'Outlier BLOCKED: NO'
+          echo '---'
+          cat outlier_check.txt 2>/dev/null || echo 'Outlier CHECK: NO'
+          echo '---'
+          cat browser_error.txt 2>/dev/null || echo 'Browser error: NO'
+          echo '---'
+          cat ERROR.txt 2>/dev/null || echo 'Error: NO'
+          echo '---'
+          cat step1_fail.txt 2>/dev/null || echo 'Step1 fail: NO'
+          echo '---'
+          cat step2_fail.txt 2>/dev/null || echo 'Step2 fail: NO'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outlier-v2-results
+          path: |
+            google_account.txt
+            google_state.txt
+            phone_needed.txt
+            outlier_success.txt
+            outlier_blocked.txt
+            outlier_check.txt
+            outlier_landing_blocked.txt
+            browser_error.txt
+            ERROR.txt
+            step1_fail.txt
+            step2_fail.txt
+            outlier_cookies.json
+          retention-days: 7
